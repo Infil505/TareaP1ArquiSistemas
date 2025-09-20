@@ -1,0 +1,44 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Output de build
+.output/
+.nuxt/
+dist/
+build/
+
+# Archivos de dependencias bloqueadas
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Archivos de entorno
+.env
+.env.*
+!.env.example
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDEs y editores
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Tests
+coverage/
+*.lcov
+
+# Archivos temporales
+*.log
+*.tmp
+*.temp
+
