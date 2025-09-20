@@ -23,6 +23,9 @@ pnpm-lock.yaml
 
 # Sistema operativo
 .DS_Store
++
++
+
 Thumbs.db
 
 # IDEs y editores
