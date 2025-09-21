@@ -7,7 +7,7 @@ engine: 5.0L V8 biturbo
 power_hp: 1600
 top_speed_kmh: 482
 drivetrain: RWD
-image: https://upload.wikimedia.org/wikipedia/commons/8/83/Koenigsegg_Jesko_Gen%C3%A8ve_2019.jpg
+image: https://www.supercars.net/blog/wp-content/uploads/2019/04/Jesko2.jpg
 manufacturer_slug: koenigsegg
 designer_slugs:
 - joachim-nordwall

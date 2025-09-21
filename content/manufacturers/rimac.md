@@ -3,7 +3,7 @@ name: Rimac
 slug: rimac
 country: Croacia
 founded: '2009'
-logo: https://upload.wikimedia.org/wikipedia/commons/e/e9/Rimac_Automobili_logo.svg
+logo: https://www.carlogos.org/logo/Rimac-logo-800x600.png
 bio: Pionero en hiperdeportivos eléctricos.
 models:
 - rimac-nevera

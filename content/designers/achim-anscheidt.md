@@ -2,7 +2,7 @@
 name: Achim Anscheidt
 slug: achim-anscheidt
 country: Alemania
-photo: https://upload.wikimedia.org/wikipedia/commons/0/0b/Bugatti_Design_Director_Achim_Anscheidt.jpg
+photo: https://gentlemendriversmag.com/wp-content/uploads/2017/10/ACHIM-ANSCHEIDT.jpg
 bio: Director de diseño de Bugatti durante el desarrollo del Chiron.
 models:
 - bugatti-chiron

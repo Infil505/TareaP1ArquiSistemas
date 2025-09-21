@@ -7,7 +7,7 @@ engine: 5.9L V8 biturbo
 power_hp: 1750
 top_speed_kmh: 455
 drivetrain: RWD
-image: https://upload.wikimedia.org/wikipedia/commons/8/8e/SSC_Tuatara%2C_2011.jpg
+image: https://www.autonocion.com/wp-content/uploads/2018/08/SSC-Tuatara-4.jpg
 manufacturer_slug: ssc
 designer_slugs:
 - jason-castriota

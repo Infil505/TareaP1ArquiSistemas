@@ -3,7 +3,7 @@ name: Koenigsegg
 slug: koenigsegg
 country: Suecia
 founded: '1994'
-logo: https://upload.wikimedia.org/wikipedia/en/0/0c/Koenigsegg_Automotive_AB_logo.svg
+logo: https://www.carlogos.org/logo/Koenigsegg-logo-1994-2048x2048.png
 bio: Innovación sueca en hiperdeportivos.
 models:
 - koenigsegg-jesko

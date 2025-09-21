@@ -7,7 +7,7 @@ engine: 6.5L V12
 power_hp: 759
 top_speed_kmh: 350
 drivetrain: AWD
-image: https://upload.wikimedia.org/wikipedia/commons/5/57/Lamborghini_Aventador_SVJ_001.jpg
+image: https://wallpapercave.com/wp/wp4148954.jpg
 manufacturer_slug: lamborghini
 designer_slugs:
 - filippo-perini

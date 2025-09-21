@@ -2,7 +2,7 @@
 name: Horacio Pagani
 slug: horacio-pagani
 country: Argentina/Italia
-photo: https://upload.wikimedia.org/wikipedia/commons/6/6e/Horacio_Pagani_%28cropped%29.jpg
+photo: https://www.classicdriver.com/sites/default/files/article_images/paganiinterview0_1.jpg
 bio: Fundador y diseñador principal de Pagani.
 models:
 - pagani-huayra
