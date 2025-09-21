@@ -2,9 +2,7 @@
   <div class="manufacturer-detail-container">
     <!-- Navigation -->
     <nav class="breadcrumb">
-      <NuxtLink to="/manufacturers" class="back-link">
-        ← Volver a fabricantes
-      </NuxtLink>
+      <NuxtLink to="manufacturers" class="home-button inline-block">← Volver a Fabricantes</NuxtLink>
     </nav>
 
     <div v-if="maker" class="manufacturer-detail">

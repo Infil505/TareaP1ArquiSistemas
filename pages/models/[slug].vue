@@ -53,7 +53,7 @@ const next = computed(() => {
 
 <template>
   <main class="article-container space-y-4">
-    <NuxtLink to="/models" class="home-button inline-block">← Volver a modelos</NuxtLink>
+    <NuxtLink to="models" class="home-button inline-block">← Volver a modelos</NuxtLink>
 
     <article v-if="model" class="article-content">
       <header class="article-header">
