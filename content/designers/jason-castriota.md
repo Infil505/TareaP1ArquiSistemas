@@ -2,7 +2,7 @@
 name: Jason Castriota
 slug: jason-castriota
 country: EE. UU.
-photo: https://upload.wikimedia.org/wikipedia/commons/5/59/Jason_Castriota.jpg
+photo: https://static1.topspeedimages.com/wordpress/wp-content/uploads/jpg/201003/car-designer-jason-c.jpg
 bio: Diseñador responsable del estilo del SSC Tuatara.
 models:
 - ssc-tuatara

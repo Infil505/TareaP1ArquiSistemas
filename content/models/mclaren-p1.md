@@ -7,7 +7,7 @@ engine: 3.8L V8 biturbo híbrido
 power_hp: 903
 top_speed_kmh: 350
 drivetrain: RWD
-image: https://upload.wikimedia.org/wikipedia/commons/7/7f/McLaren_P1.jpg
+image: https://www.carscoops.com/wp-content/uploads/2019/07/89233ad8-mclaren-p1-xp05-1.jpg
 manufacturer_slug: mclaren
 designer_slugs:
 - frank-stephenson

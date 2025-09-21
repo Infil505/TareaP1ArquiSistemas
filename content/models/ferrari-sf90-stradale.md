@@ -7,7 +7,7 @@ engine: 4.0L V8 biturbo híbrido
 power_hp: 986
 top_speed_kmh: 340
 drivetrain: AWD
-image: https://upload.wikimedia.org/wikipedia/commons/5/5e/2019_Ferrari_SF90_Stradale.jpg
+image: https://www.hdcarwallpapers.com/download/ferrari_sf90_stradale_2020_5k_2-3840x2160.jpg
 manufacturer_slug: ferrari
 designer_slugs:
 - flavio-manconi

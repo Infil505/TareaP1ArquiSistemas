@@ -7,7 +7,7 @@ engine: 4.6L V8 híbrido
 power_hp: 887
 top_speed_kmh: 345
 drivetrain: AWD
-image: https://upload.wikimedia.org/wikipedia/commons/7/7b/Porsche_918_Spyder_IAA_2013.jpg
+image: https://www.autopista.es/uploads/s1/37/40/53/7/imagegallery-42598-53146523e444c_2_790x454.jpeg
 manufacturer_slug: porsche
 designer_slugs:
 - michael-mauer

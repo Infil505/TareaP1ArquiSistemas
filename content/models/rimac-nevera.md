@@ -7,7 +7,7 @@ engine: Eléctrico (4 motores)
 power_hp: 1914
 top_speed_kmh: 412
 drivetrain: AWD
-image: https://upload.wikimedia.org/wikipedia/commons/8/8d/Rimac_C_Two_GIMS_2018.jpg
+image: https://cdn.motor1.com/images/mgl/y228Mo/s1/2023-rimac-nevera-first-drive-review.jpg
 manufacturer_slug: rimac
 designer_slugs:
 - adriano-mudri

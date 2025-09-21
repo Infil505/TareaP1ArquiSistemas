@@ -7,7 +7,7 @@ engine: 6.3L V12 híbrido
 power_hp: 950
 top_speed_kmh: 350
 drivetrain: RWD
-image: https://upload.wikimedia.org/wikipedia/commons/0/0f/2015_Ferrari_LaFerrari_6.3_Front.jpg
+image: https://copleymotorcars.com/wp-content/uploads/2018/02/2014-Ferrari-LaFerrari-45_preview.jpeg
 manufacturer_slug: ferrari
 designer_slugs:
 - pininfarina

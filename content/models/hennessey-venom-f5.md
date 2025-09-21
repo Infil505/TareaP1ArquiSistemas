@@ -7,7 +7,7 @@ engine: 6.6L V8 biturbo
 power_hp: 1817
 top_speed_kmh: 500
 drivetrain: RWD
-image: https://upload.wikimedia.org/wikipedia/commons/f/ff/Hennessey_Venom_F5.jpg
+image: https://cdn.motor1.com/images/mgl/mZ8w4/s1/hennessey-venom-f5.jpg
 manufacturer_slug: hennessey
 designer_slugs:
 - nathan-malinick
