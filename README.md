@@ -8,10 +8,6 @@
 ## Instrucciones
 1. Instalar dependencias: `npm i`
 2. Desarrollo local: `npm run dev`
-3. Generar estático para Netlify: `npm run generate`
-4. En Netlify:
-   - Build command: `npm run generate`
-   - Publish directory: `.output/public`
 
 ## Estructura de datos
 - Entidad principal: **models** (≥6 campos)
@@ -29,3 +25,11 @@
 - `/models/[slug]` → detalle con enlaces a fabricante y diseñadores
 - `/manufacturers` / `/manufacturers/[slug]`
 - `/designers` / `/designers/[slug]`
+
+## creadores de contenido
+
+- Darwin Javier Silva Gadea
+- Joseph Alvarez Ruiz
+
+## link del proyecto en netlify
+- https://stellular-speculoos-5125d7.netlify.app/
