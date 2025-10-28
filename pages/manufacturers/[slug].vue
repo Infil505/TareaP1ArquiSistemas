@@ -109,67 +109,62 @@
 </template>
 
 <script setup lang="ts">
-import { useAsyncData } from 'nuxt/app';
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAsyncData } from 'nuxt/app'
+import { getManufacturerBySlug, type Manufacturer } from '~/lib/services/manufacturers'
+import { listModels, type Model } from '~/lib/services/models'
 
-type BaseDoc = { _id: string; _path: string; slug: string; name: string }
-type Manufacturer = BaseDoc & {
-  logo?: string
-  country?: string
-  founded?: number | string
-  bio?: string
-  body?: any
-  headquarters?: string
-  website?: string
-  employees?: number
+// 👇 Extiende el tipo base para incluir los campos usados en esta vista
+type ManufacturerExt = Manufacturer & {
   models?: string[]
   featured_model?: string
 }
 
-type Model = BaseDoc & {
-  year?: number
-  image?: string
-  summary?: string
-  power_hp?: number
-  manufacturer_slug?: string
-}
+const slug = useRoute().params.slug as string
 
-const route = useRoute()
-const slug = route.params.slug as string
-
-const { data: maker, pending } = await useAsyncData<Manufacturer | null>(
+// Detalle del fabricante (usa el tipo extendido)
+const { data: maker, pending } = await useAsyncData<ManufacturerExt | null>(
   `manufacturer-${slug}`,
-  () => queryContent<Manufacturer>('manufacturers').where({ slug }).findOne()
+  () => getManufacturerBySlug(slug) as Promise<ManufacturerExt | null>
 )
 
-const { data: models, pending: modelsLoading } = await useAsyncData<Model[]>(
+// Modelos del fabricante (filtra por slugs que vengan del manufacturer)
+const { data: models } = await useAsyncData<Model[]>(
   `manufacturer-models-${slug}`,
   async () => {
-    const slugs = maker.value?.models || []
+    const slugs = maker.value?.models ?? []
     if (!slugs.length) return []
-    return await queryContent<Model>('models')
-      .where({ slug: { $in: slugs } })
-      .only(['_id','_path','slug','name','year','image','summary','power_hp'])
-      .sort({ year: -1 })
-      .find()
+    const all = await listModels({ limit: 1000 }) // listModels -> Model[]
+    return all
+      .filter(m => slugs.includes(m.slug))
+      .sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
   },
   { watch: [maker] }
 )
 
+// Modelo destacado
 const featuredModel = computed<Model | null>(() => {
-  const list = models.value || []
+  const list = models.value ?? []
   if (!list.length) return null
-  if (maker.value?.featured_model) {
-    const found = list.find(m => m.slug === maker.value!.featured_model)
-    if (found) return found
-  }
-  const newestWithImg = [...list].filter(m => !!m.image).sort((a,b) => (b.year||0)-(a.year||0))[0]
-  return newestWithImg || list[0]
+
+  // usa featured_model si existe
+  const byFeatured = maker.value?.featured_model
+    ? list.find(m => m.slug === maker.value!.featured_model) ?? null
+    : null
+  if (byFeatured) return byFeatured
+
+  // sino, el más nuevo con imagen; si no, el primero
+  const newestWithImg = list
+    .filter(m => !!m.image)
+    .sort((a, b) => (b.year ?? 0) - (a.year ?? 0))[0]
+
+  return newestWithImg ?? list[0] ?? null
 })
 
-const cleanUrl = (u?: string) => (u ? u.replace(/^https?:\/\//,'') : '')
+const cleanUrl = (u?: string) => (u ? u.replace(/^https?:\/\//, '') : '')
 </script>
+
 
 <style scoped>
 .manufacturer-detail-container{max-width:1200px;margin:0 auto;padding:1rem}

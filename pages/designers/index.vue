@@ -1,18 +1,16 @@
 <template>
-  <!-- Cambia theme-blue por theme-rosso / theme-lime / theme-silver si quieres -->
   <div class="designers-container theme-blue">
     <header class="designers-header">
       <h1 class="designers-title">Diseñadores</h1>
       <p class="designers-subtitle">Los visionarios que dan forma al futuro del automóvil</p>
     </header>
 
-    <div v-if="designers?.length" class="designers-grid grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="designers?.length" class="designers-grid">
       <article v-for="designer in designers" :key="designer._id" class="designer-card">
-        <!-- Navegación robusta: por nombre (pages/designers/[slug].vue). Fallback a _path -->
-        <NuxtLink :to="designerTo(designer)" class="designer-link" prefetch>
+        <NuxtLink :to="`/designers/${designer.slug}`" class="designer-link" prefetch>
           <div class="designer-image-container">
             <img
-              :src="designer.photo || '/images/default-designer.jpg'"
+              :src="getPhoto(designer)"
               :alt="`Foto de ${designer.name}`"
               class="designer-photo"
               loading="lazy"
@@ -76,54 +74,26 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
-
-// Meta
-useHead({
-  title: 'Diseñadores - Los Visionarios del Automóvil',
-  meta: [
-    { name: 'description', content: 'Descubre a los diseñadores más influyentes de la industria automotriz y sus creaciones más icónicas.' }
-  ]
-})
-
-type Designer = {
-  _id: string
-  _path?: string
-  slug: string
-  name: string
-  country?: string
-  photo?: string
-  bio?: string
-  specialty?: string
-  notable_projects?: string[]
-  birth_year?: number
-  awards?: string[]
-  models?: string[]
-}
+import { listDesigners, toAssetUrl, type Designer } from '~/lib/services/designers'
 
 const currentYear = new Date().getFullYear()
 
-const { data: designers, pending, error } = await useAsyncData<Designer[]>(
+// Normalizador seguro para fotos
+const getPhoto = (d: Designer): string => {
+  return toAssetUrl(d.photo) || '/images/default-designer.jpg'
+}
+
+const handleImageError = (event: Event) => {
+  (event.target as HTMLImageElement).src = '/images/default-designer.jpg'
+}
+
+// ✅ listDesigners devuelve Designer[] directamente
+const { data: designers, pending } = await useAsyncData<Designer[]>(
   'designers',
-  () => queryContent<Designer>('designers')
-    .only(['_id', '_path', 'slug', 'name', 'country', 'photo', 'bio', 'specialty', 'notable_projects', 'birth_year', 'awards', 'models'])
-    .sort({ name: 1 })
-    .find()
+  () => listDesigners({ limit: 99 })
 )
 
-// Routing helper
-const designerTo = (d: Designer) => {
-  if (d.slug) return { name: 'designers-slug', params: { slug: d.slug } }
-  if (d._path) return d._path
-  return '/designers'
-}
-
-// Fallback de imagen
-const handleImageError = (event: Event) => {
-  const target = event.target as HTMLImageElement
-  target.src = '/images/default-designer.jpg'
-}
-
-// Overlay reactivo al mouse (—mx / —my)
+// Efecto de luz reactiva (opcional)
 let bound = false
 const onMove = (e: MouseEvent) => {
   const cards = document.querySelectorAll<HTMLElement>('.designers-container .designer-card')
@@ -137,7 +107,7 @@ const onMove = (e: MouseEvent) => {
 }
 
 onMounted(() => {
-  if (typeof window !== 'undefined' && !bound) {
+  if (!bound) {
     window.addEventListener('mousemove', onMove, { passive: true })
     bound = true
   }
@@ -145,18 +115,12 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (bound) {
-    window.removeEventListener('mousemove', onMove as EventListener)
+    window.removeEventListener('mousemove', onMove)
     bound = false
   }
 })
-
-if (error.value) {
-  throw createError({
-    statusCode: 500,
-    statusMessage: 'Error al cargar los diseñadores'
-  })
-}
 </script>
+
 
 <style scoped>
 /* =======================

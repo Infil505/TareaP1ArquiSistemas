@@ -6,14 +6,15 @@
     </header>
 
     <div v-if="models?.length" class="models-grid">
-      <article
-        v-for="m in models"
-        :key="m._id"
-        class="model-card"
-      >
-        <NuxtLink :to="m._path" class="card-link">
+      <article v-for="m in models" :key="m._id" class="model-card">
+        <NuxtLink :to="`/models/${m.slug}`" class="card-link">
           <div class="card-image">
-            <img :src="m.image" :alt="m.name" loading="lazy" />
+            <img
+              :src="getImage(m)"
+              :alt="m.name"
+              loading="lazy"
+              @error="onImgError"
+            />
           </div>
           <div class="card-body">
             <h4 class="card-title">{{ m.name }}</h4>
@@ -28,42 +29,31 @@
     </div>
 
     <div v-else-if="pending" class="loading-state">
-      <p class="opacity-60">Cargando modelos…</p>
+      <p>Cargando modelos…</p>
     </div>
 
     <div v-else class="empty-state">
-      <p class="opacity-60">No se encontraron modelos</p>
+      <p>No se encontraron modelos</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-type Model = {
-  _id: string
-  _path: string
-  slug: string
-  name: string
-  year?: number
-  image?: string
-  summary?: string
-  country?: string
-  engine?: string
-  drivetrain?: string
-  power_hp?: number
-  top_speed_kmh?: number
-  manufacturer_slug?: string
-  designer_slugs?: string[]
+import { listModels, toAssetUrl, type Model } from '~/lib/services/models'
+
+// Normaliza imagen (URL directa o asset de Cockpit)
+const getImage = (m: Model): string => {
+  return toAssetUrl(m.image) || '/images/default-car.jpg'
 }
 
+const onImgError = (e: Event) => {
+  (e.target as HTMLImageElement).src = '/images/default-car.jpg'
+}
+
+// ✅ listModels devuelve Model[] (no { entries })
 const { data: models, pending } = await useAsyncData<Model[]>(
   'models',
-  () => queryContent<Model>('models')
-    .only([
-      '_id', '_path', 'slug', 'name', 'year', 'image', 'summary',
-      'country', 'engine', 'drivetrain', 'power_hp', 'top_speed_kmh'
-    ])
-    .sort({ year: -1 })
-    .find()
+  () => listModels({ limit: 99 })
 )
 </script>
 
@@ -71,7 +61,8 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 /* =======================
    THEME TOKENS BASE (garaje)
    ======================= */
-:host, :root {
+:host,
+:root {
   --bg-hero-1: #0f1013;
   --bg-hero-2: #0a0a0c;
   --bg-card: #111318;
@@ -79,11 +70,13 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   --text-1: #f2f3f6;
   --text-2: #b3b6c3;
   --line: #232633;
-  --fx-white: rgba(255,255,255,0.12);
+  --fx-white: rgba(255, 255, 255, 0.12);
 
   /* Accents por defecto (Racing Blue) */
-  --accent: #3b82f6;   /* blue-500 */
-  --accent-2: #06b6d4; /* cyan-500 */
+  --accent: #3b82f6;
+  /* blue-500 */
+  --accent-2: #06b6d4;
+  /* cyan-500 */
 }
 
 /* =======================
@@ -94,22 +87,28 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 
 /* Rosso Corsa (rojo Ferrari + dorado cálido) */
 .theme-rosso {
-  --accent: #ff3131;   /* rosso */
-  --accent-2: #ffb703; /* dorado */
+  --accent: #ff3131;
+  /* rosso */
+  --accent-2: #ffb703;
+  /* dorado */
 }
 
 /* Electric Lime (verde neón + cian) */
 .theme-lime {
-  --accent: #a3e635;   /* lime-400 */
-  --accent-2: #22d3ee; /* cyan-400 */
+  --accent: #a3e635;
+  /* lime-400 */
+  --accent-2: #22d3ee;
+  /* cyan-400 */
 }
 
 /* GT Silver (plateado con azul hielo) */
 .theme-silver {
   --bg-card: #14161a;
   --bg-elev: #1a1d23;
-  --accent: #cbd5e1;   /* slate-300 */
-  --accent-2: #60a5fa; /* blue-400 */
+  --accent: #cbd5e1;
+  /* slate-300 */
+  --accent-2: #60a5fa;
+  /* blue-400 */
 }
 
 /* =======================
@@ -123,7 +122,12 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   position: relative;
   isolation: isolate;
 }
-@media (min-width: 768px) { .models-container { padding: 2rem; } }
+
+@media (min-width: 768px) {
+  .models-container {
+    padding: 2rem;
+  }
+}
 
 /* =======================
    HEADER (fibra + halo del tema)
@@ -135,18 +139,20 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   border-radius: 20px;
   padding: 2rem 1rem 2.2rem;
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   background:
     repeating-linear-gradient(45deg, #101216 0 2px, #0d0f12 2px 4px),
     linear-gradient(135deg, var(--bg-hero-1) 0%, var(--bg-hero-2) 55%, #07080a 100%);
 }
-.models-header::before{
-  content:"";
-  position:absolute; inset: -15% -25% auto -25%;
+
+.models-header::before {
+  content: "";
+  position: absolute;
+  inset: -15% -25% auto -25%;
   height: 200px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .12), transparent);
   filter: blur(24px);
-  opacity:.5;
+  opacity: .5;
   transform: translateY(-12px);
 }
 
@@ -157,13 +163,19 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   letter-spacing: .3px;
   line-height: 1.05;
   color: var(--text-1);
-  text-shadow: 0 2px 12px rgba(0,0,0,0.45);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
   position: relative;
 }
-.models-title::after{
-  content:"";
-  position:absolute; left:50%; transform:translateX(-50%);
-  bottom:-10px; width: 160px; height: 3px; border-radius: 999px;
+
+.models-title::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -10px;
+  width: 160px;
+  height: 3px;
+  border-radius: 999px;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent);
 }
@@ -185,25 +197,29 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
+
 @media (min-width: 1024px) {
-  .models-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .models-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
 }
 
 /* =======================
    CARD DE MODELO (usa --accent del tema)
    ======================= */
 .model-card {
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   background: linear-gradient(180deg, var(--bg-elev), var(--bg-card));
   overflow: hidden;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
+
 .model-card:hover {
   transform: translateY(-6px);
   border-color: var(--accent);
-  box-shadow: 0 16px 32px color-mix(in srgb, var(--accent) 26%, rgba(0,0,0,0.35));
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--accent) 26%, rgba(0, 0, 0, 0.35));
 }
 
 .card-link {
@@ -219,13 +235,17 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   background: #0a0b0d;
   overflow: hidden;
 }
+
 .card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform .35s ease;
 }
-.model-card:hover .card-image img { transform: scale(1.08); }
+
+.model-card:hover .card-image img {
+  transform: scale(1.08);
+}
 
 .card-body {
   padding: 1rem 1.1rem 1.3rem;
@@ -254,8 +274,9 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   color: #d1d5db;
   padding: .2rem .6rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
 .chip.accent {
   background: var(--accent);
   color: #0b0b0d;
@@ -269,19 +290,25 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 .empty-state {
   text-align: center;
   padding: 4rem 1rem;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
   border: 1px dashed var(--line);
   border-radius: 16px;
   color: var(--text-2);
 }
+
 .loading-state p,
-.empty-state p { font-size: 1.075rem; }
+.empty-state p {
+  font-size: 1.075rem;
+}
 
 /* =======================
    REDUCED MOTION
    ======================= */
 @media (prefers-reduced-motion: reduce) {
+
   .model-card,
-  .models-title::after { transition: none !important; }
+  .models-title::after {
+    transition: none !important;
+  }
 }
 </style>

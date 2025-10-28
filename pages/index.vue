@@ -8,7 +8,7 @@
           Explora modelos (entidad principal) y navega hacia sus fabricantes y diseñadores (entidades secundarias).
           Las entidades están enlazadas mediante referencias.
         </p>
-        
+
         <!-- Quick Stats -->
         <div class="stats-grid">
           <div class="stat-item">
@@ -25,26 +25,25 @@
           </div>
         </div>
       </div>
-      
     </section>
 
-     <!-- Quick Navigation -->
+    <!-- Quick Navigation -->
     <section class="navigation-section">
       <h3 class="navigation-title">Explorar por categoría</h3>
       <div class="navigation-grid">
-        <NuxtLink to="/models/models" class="nav-card models-card">
+        <NuxtLink to="/models" class="nav-card models-card">
           <div class="nav-icon">🏎</div>
           <h4>Modelos</h4>
           <p>Explora nuestra colección completa de Superdeportivos</p>
         </NuxtLink>
-        
-        <NuxtLink to="/manufacturers/manufacturers" class="nav-card manufacturers-card">
+
+        <NuxtLink to="/manufacturers" class="nav-card manufacturers-card">
           <div class="nav-icon">🏭</div>
           <h4>Fabricantes</h4>
           <p>Conoce las marcas más prestigiosas del mundo</p>
         </NuxtLink>
-        
-        <NuxtLink to="/designers/designer" class="nav-card designers-card">
+
+        <NuxtLink to="/designers" class="nav-card designers-card">
           <div class="nav-icon">✏</div>
           <h4>Diseñadores</h4>
           <p>Los visionarios detrás de estas máquinas</p>
@@ -67,9 +66,9 @@
           :key="m._id"
           class="model-card"
         >
-          <NuxtLink :to="m._path" class="card-link">
+          <NuxtLink :to="`/models/${m.slug}`" class="card-link">
             <div class="card-image">
-              <img :src="m.image" :alt="m.name" loading="lazy" />
+              <img :src="getImage(m)" :alt="m.name" loading="lazy" @error="onImgError" />
             </div>
             <div class="card-body">
               <h4 class="card-title">{{ m.name }}</h4>
@@ -83,7 +82,7 @@
         </article>
       </div>
 
-      <div v-else-if="pending" class="loading-state">
+      <div v-else-if="pendingFeatured" class="loading-state">
         <p class="opacity-60">Cargando modelos destacados…</p>
       </div>
 
@@ -96,57 +95,53 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { listModels, toAssetUrl, type Model } from '~/lib/services/models'
+import { listManufacturers } from '~/lib/services/manufacturers'
+import { listDesigners } from '~/lib/services/designers'
 
-// Tipo mínimo para los modelos
-type Model = {
-  _id: string
-  _path: string
-  slug: string
-  name: string
-  year?: number
-  image?: string
-  summary?: string
-  power_hp?: number
+type AssetLike = string | { path?: string } | null | undefined
+
+// Normalizador de imagen (string o asset Cockpit)
+const getImage = (m: Model): string => {
+  const fallback = '/images/default-car.jpg'
+  // @ts-ignore: los tipos de Model pueden variar; toAssetUrl ya maneja string/objeto
+  return toAssetUrl(m.image as AssetLike) || fallback
 }
 
-// Tipo para estadísticas básicas
-type BasicEntity = {
-  _id: string
-  slug: string
-  name: string
+const onImgError = (e: Event) => {
+  (e.target as HTMLImageElement).src = '/images/default-car.jpg'
 }
 
-// Traer modelos destacados
-const { data: models, pending } = await useAsyncData<Model[]>(
-  'home-models',
-  () => queryContent<Model>('models')
-    .only(['_id','_path','slug','name','year','image','summary','power_hp'])
-    .sort({ power_hp: -1, year: -1 })
-    .limit(6)
-    .find()
+/** Featured models */
+const { data: featuredModels, pending: pendingFeatured } = await useAsyncData<Model[]>(
+  'home-featured-models',
+  () => listModels({
+    sort: { power_hp: -1, year: -1 },
+    limit: 6
+  })
 )
 
-// Conteos para estadísticas
-const { data: allModels } = await useAsyncData<BasicEntity[]>('models-count', () =>
-  queryContent<BasicEntity>('models').only(['_id','slug','name']).find()
+/** Conteos rápidos (simple: traer listas y contar) */
+const { data: allModels } = await useAsyncData<Model[]>(
+  'home-models-count',
+  () => listModels({ limit: 1000 }) // si tienes muchos, crea un endpoint de count en servicios
 )
 
-const { data: manufacturers } = await useAsyncData<BasicEntity[]>('manufacturers-count', () =>
-  queryContent<BasicEntity>('manufacturers').only(['_id','slug','name']).find()
+const { data: allManufacturers } = await useAsyncData<any[]>(
+  'home-manufacturers-count',
+  () => listManufacturers({ limit: 1000 })
 )
 
-const { data: designers } = await useAsyncData<BasicEntity[]>('designers-count', () =>
-  queryContent<BasicEntity>('designers').only(['_id','slug','name']).find()
+const { data: allDesigners } = await useAsyncData<any[]>(
+  'home-designers-count',
+  () => listDesigners({ limit: 1000 })
 )
 
-const featuredModels = computed(() => models.value ?? [])
 const totalModels = computed(() => allModels.value?.length ?? 0)
-const totalManufacturers = computed(() => manufacturers.value?.length ?? 0)
-const totalDesigners = computed(() => designers.value?.length ?? 0)
+const totalManufacturers = computed(() => allManufacturers.value?.length ?? 0)
+const totalDesigners = computed(() => allDesigners.value?.length ?? 0)
 
-/* ===========================
-   Efecto spotlight opcional (sigue el mouse)
-   =========================== */
+/* ===== Efecto spotlight opcional (sigue el mouse) ===== */
 if (typeof window !== 'undefined') {
   const onMove = (e: MouseEvent) => {
     const cards = document.querySelectorAll<HTMLElement>('.navigation-grid .nav-card')
@@ -158,10 +153,10 @@ if (typeof window !== 'undefined') {
       card.style.setProperty('--my', `${my}%`)
     })
   }
-
-  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mousemove', onMove, { passive: true })
 }
 </script>
+
 
 
 

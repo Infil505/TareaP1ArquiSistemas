@@ -30,7 +30,7 @@
           </div>
           <!-- Retrato visible en móviles o si el fondo no funciona bien -->
           <div class="hero-portrait" v-if="designer.photo">
-            <img :src="designer.photo" :alt="`Foto de ${designer.name}`" @error="onImgError"/>
+            <img :src="photoUrl" :alt="`Foto de ${designer.name}`" @error="onImgError" />
           </div>
         </div>
         <div class="hero-stripe" aria-hidden="true"></div>
@@ -52,7 +52,7 @@
         <div class="models-grid">
           <NuxtLink v-for="(m, idx) in models" :key="m._id" :to="m._path" class="mcard" :class="{ hero: idx === 0 }">
             <div class="m-media">
-              <img :src="m.image || '/images/default-car.jpg'" :alt="m.name" @error="onImgErrorModel" />
+              <img :src="m.imageUrl || '/images/default-car.jpg'" :alt="m.name" @error="onImgErrorModel" />
               <div class="m-gradient"></div>
               <div class="m-caption">
                 <h3>{{ m.name }}</h3>
@@ -73,30 +73,30 @@
 import { createError, useAsyncData } from 'nuxt/app'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { queryContent, useHead } from '#imports'
+import { useHead } from '#imports'
+import { getDesignerBySlug } from '~/lib/services/designers'
+import { listModels } from '~/lib/services/models'
+
+const BASE = import.meta.env.VITE_COCKPIT_BASE_URL?.replace(/\/$/, '') || ''
+
+const toAssetUrl = (v: unknown): string => {
+  if (!v) return ''
+  if (typeof v === 'string') return v
+  const obj = v as { path?: string }
+  return obj?.path ? (obj.path.startsWith('/') ? `${BASE}${obj.path}` : `${BASE}/${obj.path}`) : ''
+}
 
 type Designer = {
-  _id: string
-  _path?: string
-  slug: string
-  name: string
-  country?: string
-  photo?: string
-  bio?: string
-  birth_year?: number
-  models?: string[]
-  body?: any
+  _id: string; slug: string; name: string;
+  country?: string; photo?: string | { path?: string };
+  bio?: string; birth_year?: number; models?: string[]; body?: any
 }
 
 type Model = {
-  _id: string
-  _path: string
-  slug: string
-  name: string
-  year?: number
-  image?: string
-  summary?: string
-  country?: string
+  _id: string; slug: string; name: string;
+  year?: number; image?: string | { path?: string };
+  summary?: string; country?: string;
+  _path?: string; imageUrl?: string
 }
 
 const route = useRoute()
@@ -105,32 +105,28 @@ const currentYear = new Date().getFullYear()
 
 const { data: designer, pending, error } = await useAsyncData<Designer | null>(
   `designer-${slug}`,
-  async () => {
-    let d = await queryContent<Designer>('designers')
-      .only(['_id','_path','slug','name','country','photo','bio','birth_year','models','body'])
-      .where({ slug })
-      .findOne()
-    if (!d) {
-      d = await queryContent<Designer>()
-        .only(['_id','_path','slug','name','country','photo','bio','birth_year','models','body'])
-        .where({ _path: `/designers/${slug}` })
-        .findOne()
-    }
-    return d
-  }
+  async () => await getDesignerBySlug(slug)
 )
 
 if (error.value) throw createError({ statusCode: 500, statusMessage: 'Error al cargar el diseñador' })
 
-// Modelos en el orden del diseñador.models (si existe), con fallback por año desc
+// ✅ foto normalizada a string para usar en :src y background
+const photoUrl = computed<string>(() => toAssetUrl(designer.value?.photo))
+
+// Modelos del diseñador, con imageUrl string + _path
 const { data: models } = await useAsyncData<Model[]>(
   `designer-models-${slug}`,
   async () => {
     const order = designer.value?.models || []
     if (!order.length) return []
-    const all = await queryContent<Model>('models')
-      .only(['_id','_path','slug','name','year','image','summary','country'])
-      .find()
+
+    const res = await listModels({ limit: 999 }) as { entries: Model[] }
+    const all = (res.entries || []).map(m => ({
+      ...m,
+      imageUrl: toAssetUrl(m.image),
+      _path: `/models/${m.slug}`
+    }))
+
     const index = new Map(order.map((s, i) => [s, i]))
     return all
       .filter(m => index.has(m.slug))
@@ -143,21 +139,24 @@ const { data: models } = await useAsyncData<Model[]>(
   }
 )
 
-const age = computed(() => designer.value?.birth_year ? currentYear - (designer.value.birth_year as number) : undefined)
+const age = computed(() =>
+  designer.value?.birth_year ? currentYear - (designer.value.birth_year as number) : undefined
+)
 
 const onImgError = (e: Event) => { (e.target as HTMLImageElement).src = '/images/default-designer.jpg' }
 const onImgErrorModel = (e: Event) => { (e.target as HTMLImageElement).src = '/images/default-car.jpg' }
 
-// HERO background con la foto del diseñador
+// HERO background con la foto del diseñador (string garantizado)
 const heroStyle = computed(() => ({
-  backgroundImage: `url(${designer.value?.photo || '/images/default-designer.jpg'})`
+  backgroundImage: `url(${photoUrl.value || '/images/default-designer.jpg'})`
 }))
 
-useHead({
+useHead(() => ({
   title: designer.value ? `${designer.value.name} - Diseñador` : 'Diseñador',
   meta: [{ name: 'description', content: designer.value?.bio || 'Perfil de diseñador automotriz' }]
-})
+}))
 </script>
+
 
 <style scoped>
 /* Container */

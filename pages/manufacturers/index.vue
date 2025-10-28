@@ -1,31 +1,29 @@
 <template>
-  <!-- Cambia theme-blue por theme-rosso / theme-lime / theme-silver si quieres -->
   <div class="manufacturers-container theme-blue">
     <header class="manufacturers-header">
       <h1 class="manufacturers-title">Fabricantes</h1>
       <p class="manufacturers-subtitle">Conoce las marcas más prestigiosas del mundo automotriz</p>
     </header>
 
-    <div v-if="makers?.length" class="manufacturers-grid grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <article v-for="m in makers" :key="m._id" class="manufacturer-card">
-        <NuxtLink :to="m._path" class="manufacturer-link">
+    <div v-if="manufacturers?.length" class="manufacturers-grid">
+      <article v-for="m in manufacturers" :key="m._id" class="manufacturer-card">
+        <NuxtLink :to="`/manufacturers/${m.slug}`" class="manufacturer-link">
           <div class="manufacturer-image-container">
-            <img 
-              :src="m.logo" 
+            <img
+              :src="getLogo(m)"
               :alt="`Logo de ${m.name}`"
               class="manufacturer-logo"
               loading="lazy"
+              @error="handleImageError"
             />
           </div>
-          
+
           <div class="manufacturer-content">
             <h3 class="manufacturer-name">{{ m.name }}</h3>
-            
             <div class="manufacturer-meta">
               <span v-if="m.country" class="badge">{{ m.country }}</span>
               <span v-if="m.founded" class="badge">Fundado: {{ m.founded }}</span>
             </div>
-
             <p v-if="m.bio" class="manufacturer-bio">{{ m.bio }}</p>
           </div>
         </NuxtLink>
@@ -43,27 +41,25 @@
 </template>
 
 <script setup lang="ts">
-// Tipo de fabricante
-type Manufacturer = {
-  _id: string
-  _path: string
-  slug: string
-  name: string
-  logo?: string
-  country?: string
-  founded?: number | string
-  bio?: string
+import { listManufacturers, toAssetUrl, type Manufacturer } from '~/lib/services/manufacturers'
+
+// Normalizador seguro para logos
+const getLogo = (m: Manufacturer): string => {
+  return toAssetUrl(m.logo) || '/images/default-logo.jpg'
 }
 
-// Cargar fabricantes desde content/manufacturers/
-const { data: makers, pending } = await useAsyncData<Manufacturer[]>(
+// Imagen por defecto en caso de error
+const handleImageError = (event: Event) => {
+  (event.target as HTMLImageElement).src = '/images/default-logo.jpg'
+}
+
+// ✅ listManufacturers devuelve Manufacturer[] directamente
+const { data: manufacturers, pending } = await useAsyncData<Manufacturer[]>(
   'manufacturers',
-  () => queryContent<Manufacturer>('manufacturers')
-    .only(['_id', '_path', 'slug', 'name', 'logo', 'country', 'founded', 'bio'])
-    .sort({ name: 1 })
-    .find()
+  () => listManufacturers({ limit: 99 })
 )
 </script>
+
 
 <style scoped>
 /* =======================

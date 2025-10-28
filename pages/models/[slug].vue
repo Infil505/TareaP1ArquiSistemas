@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { useAsyncData } from 'nuxt/app';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useAsyncData } from 'nuxt/app'
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { getModelBySlug, listModels, toAssetUrl } from '~/lib/services/models'
 
-type BaseDoc = { _id: string; _path: string; slug: string; name: string }
-export type Author = string | { name: string }
-export type Model = BaseDoc & {
-  image?: string
-  img?: string
+type Model = {
+  _id: string
+  _path?: string
+  slug: string
+  name: string
+  image?: string | { path?: string }
+  img?: string | { path?: string }
   summary?: string
   body?: any
   year?: number
@@ -17,73 +20,85 @@ export type Model = BaseDoc & {
   drivetrain?: string
   power_hp?: number
   top_speed_kmh?: number
-  author?: Author
   manufacturer_slug?: string
   designer_slugs?: string[]
 }
 
-const route = useRoute()
-const slug = route.params.slug as string
+const slug = useRoute().params.slug as string
 
+// Carga modelo
 const { data: model, pending } = await useAsyncData<Model | null>(
   `model-${slug}`,
-  () => queryContent<Model>('models').where({ slug }).findOne()
+  async () => {
+    const m = await getModelBySlug(slug)
+    if (!m) return null
+    return {
+      ...m,
+      image: typeof m.image === 'object' ? toAssetUrl(m.image) : m.image,
+      img: typeof m.img === 'object' ? toAssetUrl(m.img) : m.img
+    }
+  }
 )
 
-const { data: list } = await useAsyncData<Pick<Model, '_path' | 'name' | 'slug' | 'year' | 'date'>[]>(
+type ModelForNav = Pick<Model, '_path' | 'name' | 'slug' | 'year' | 'date'>
+
+// ✅ Tipamos el retorno de listModels para evitar 'unknown'
+const { data: list } = await useAsyncData<ModelForNav[]>(
   'models-for-nav',
-  () => queryContent<Model>('models')
-    .only(['_path', 'name', 'slug', 'year', 'date'])
-    .sort({ year: -1 })
-    .find()
+  async (): Promise<ModelForNav[]> => {
+    const res = await listModels({ limit: 99 }) as { entries?: ModelForNav[] }
+    return res.entries ?? []
+  }
 )
+
 
 const prev = computed(() => {
   const arr = list.value ?? []
   const i = arr.findIndex(d => d.slug === slug)
-  if (i > 0) return arr[i - 1]
-  return null
+  return i > 0 ? arr[i - 1] : null
 })
 
 const next = computed(() => {
   const arr = list.value ?? []
   const i = arr.findIndex(d => d.slug === slug)
-  if (i >= 0 && i < arr.length - 1) return arr[i + 1]
-  return null
+  return (i >= 0 && i < arr.length - 1) ? arr[i + 1] : null
 })
 
-// Animaciones de enfoque en el vehículo
+const getImage = (m: Model | null): string => {
+  if (!m) return '/images/default-car.jpg'
+  if (typeof m.image === 'string') return m.image
+  if (typeof m.img === 'string') return m.img
+  if (m.image && typeof m.image === 'object') return toAssetUrl(m.image)
+  if (m.img && typeof m.img === 'object') return toAssetUrl(m.img)
+  return '/images/default-car.jpg'
+}
+
+
+// Movimiento 3D del auto
 const stageEl = ref<HTMLElement | null>(null)
 const onMove = (e: MouseEvent) => {
-  const stage = stageEl.value
-  if (!stage) return
+  const stage = stageEl.value; if (!stage) return
   const r = stage.getBoundingClientRect()
   const dx = (e.clientX - (r.left + r.width / 2)) / r.width
   const dy = (e.clientY - (r.top + r.height / 2)) / r.height
   stage.style.setProperty('--parx', String(dx))
   stage.style.setProperty('--pary', String(dy))
 }
-
-onMounted(() => {
-  window.addEventListener('mousemove', onMove)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', onMove)
-})
+onMounted(() => window.addEventListener('mousemove', onMove))
+onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
 </script>
 
 <template>
   <div class="detail-page">
     <header class="topbar">
-      <NuxtLink to="/models/models" class="tb-back">⟵ Modelos</NuxtLink>
+      <NuxtLink to="/models" class="tb-back">⟵ Modelos</NuxtLink>
       <NuxtLink to="/" class="tb-home">🏠</NuxtLink>
     </header>
 
     <section class="hero">
       <div ref="stageEl" class="hero-stage">
         <div class="glow"></div>
-        <img :src="model?.image || model?.img" :alt="model?.name" class="car" v-if="model?.image || model?.img" />
+        <img :src="getImage(model)" :alt="model?.name" class="car" v-if="model" />
         <div class="shine"></div>
       </div>
 
@@ -96,24 +111,24 @@ onBeforeUnmount(() => {
     <section class="content">
       <article>
         <p class="lead">{{ model?.summary || 'Un superdeportivo que conquista miradas y corazones.' }}</p>
-        <ContentRenderer v-if="model?.body" :value="model" />
+        <ContentRenderer v-if="model?.body" :value="model" class="cms" />
       </article>
 
       <aside class="specs">
         <h3>Especificaciones</h3>
         <ul>
-          <li v-if="model?.engine">Motor: <strong>{{ model?.engine }}</strong></li>
-          <li v-if="model?.power_hp">Potencia: <strong>{{ model?.power_hp }} HP</strong></li>
-          <li v-if="model?.top_speed_kmh">Vel. Máxima: <strong>{{ model?.top_speed_kmh }} km/h</strong></li>
-          <li v-if="model?.drivetrain">Tracción: <strong>{{ model?.drivetrain }}</strong></li>
-          <li v-if="model?.country">Origen: <strong>{{ model?.country }}</strong></li>
-          <li v-if="model?.year">Año: <strong>{{ model?.year }}</strong></li>
+          <li v-if="model?.engine">Motor: <strong>{{ model.engine }}</strong></li>
+          <li v-if="model?.power_hp">Potencia: <strong>{{ model.power_hp }} HP</strong></li>
+          <li v-if="model?.top_speed_kmh">Vel. Máxima: <strong>{{ model.top_speed_kmh }} km/h</strong></li>
+          <li v-if="model?.drivetrain">Tracción: <strong>{{ model.drivetrain }}</strong></li>
+          <li v-if="model?.country">Origen: <strong>{{ model.country }}</strong></li>
+          <li v-if="model?.year">Año: <strong>{{ model.year }}</strong></li>
         </ul>
-        <NuxtLink :to="`/manufacturers/${model?.manufacturer_slug}`" class="buy-btn">
-          Solicitar Información del fabricante
+        <NuxtLink v-if="model?.manufacturer_slug" :to="`/manufacturers/${model.manufacturer_slug}`" class="buy-btn">
+          Información del fabricante
         </NuxtLink>
-        <NuxtLink :to="`/designers/${model?.designer_slugs}`" class="buy-btn">
-          Solicitar Información del diseñador
+        <NuxtLink v-if="model?.designer_slugs?.length" :to="`/designers/${model.designer_slugs[0]}`" class="buy-btn">
+          Información del diseñador
         </NuxtLink>
       </aside>
     </section>
@@ -123,6 +138,7 @@ onBeforeUnmount(() => {
     </footer>
   </div>
 </template>
+
 
 <style scoped>
 .detail-page {
