@@ -1,4 +1,3 @@
-// lib/cockpit.ts
 export type CockpitMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export async function cockpitFetch<T = any>(

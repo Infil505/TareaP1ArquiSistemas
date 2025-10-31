@@ -13,6 +13,7 @@
               :src="getImage(m)"
               :alt="m.name"
               loading="lazy"
+              decoding="async"
               @error="onImgError"
             />
           </div>
@@ -39,23 +40,29 @@
 </template>
 
 <script setup lang="ts">
-import { listModels, toAssetUrl, type Model } from '~/lib/services/models'
+import { listModels, type Model } from '~/lib/services/models'
 
-// Normaliza imagen (URL directa o asset de Cockpit)
+// GIF por defecto (solo si no hay imagen)
+const DEFAULT_GIF = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
+
+// Toma la imagen normal; si no viene, usa el GIF definido en el servicio (displayImage)
+// y, si por alguna razón displayImage no existe, usa el GIF de respaldo local aquí.
 const getImage = (m: Model): string => {
-  return toAssetUrl(m.image) || '/images/default-car.jpg'
+  return (m as any).displayImage || DEFAULT_GIF
 }
 
+// Si falla la imagen, cambiamos al GIF
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = '/images/default-car.jpg'
+  (e.target as HTMLImageElement).src = DEFAULT_GIF
 }
 
-// ✅ listModels devuelve Model[] (no { entries })
+// ✅ listModels devuelve Model[] con displayImage normalizado
 const { data: models, pending } = await useAsyncData<Model[]>(
   'models',
   () => listModels({ limit: 99 })
 )
 </script>
+
 
 <style scoped>
 /* =======================

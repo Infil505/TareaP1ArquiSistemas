@@ -63,12 +63,19 @@
       <div v-if="featuredModels?.length" class="featured-grid">
         <article
           v-for="m in featuredModels"
-          :key="m._id"
+          :key="m.slug"
           class="model-card"
         >
           <NuxtLink :to="`/models/${m.slug}`" class="card-link">
             <div class="card-image">
-              <img :src="getImage(m)" :alt="m.name" loading="lazy" @error="onImgError" />
+              <img
+                :src="getImage(m)"
+                :alt="m.name"
+                loading="lazy"
+                decoding="async"
+                sizes="(min-width:1024px) 33vw, 100vw"
+                @error="onImgError"
+              />
             </div>
             <div class="card-body">
               <h4 class="card-title">{{ m.name }}</h4>
@@ -76,7 +83,9 @@
                 <span v-if="m.year" class="chip">{{ m.year }}</span>
                 <span v-if="m.power_hp" class="chip accent">{{ m.power_hp }} hp</span>
               </div>
-              <p v-if="m.summary" class="card-summary">{{ m.summary }}</p>
+              <p v-if="m.summary" class="card-summary">
+                {{ summarize(m.summary) }}
+              </p>
             </div>
           </NuxtLink>
         </article>
@@ -93,68 +102,63 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { computed } from 'vue'
-import { listModels, toAssetUrl, type Model } from '~/lib/services/models'
-import { listManufacturers } from '~/lib/services/manufacturers'
-import { listDesigners } from '~/lib/services/designers'
+import { listModels, toAssetUrl } from '~/lib/services/models'
+import type { Model } from '~/lib/services/models'
 
 type AssetLike = string | { path?: string } | null | undefined
+const DEFAULT_GIF = 'https://i.pinimg.com/originals/a8/28/88/a828888852e708d9afaaad06c7f9513f.gif'
 
-// Normalizador de imagen (string o asset Cockpit)
+// 👉 Usa primero displayImage (normalizada en el service). Si no, image/img. Último recurso: GIF.
 const getImage = (m: Model): string => {
-  const fallback = '/images/default-car.jpg'
-  // @ts-ignore: los tipos de Model pueden variar; toAssetUrl ya maneja string/objeto
-  return toAssetUrl(m.image as AssetLike) || fallback
+  return (m.displayImage && m.displayImage.length)
+    ? m.displayImage
+    : (toAssetUrl(m.image as AssetLike) || toAssetUrl(m.img as AssetLike) || DEFAULT_GIF)
 }
 
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = '/images/default-car.jpg'
+  (e.target as HTMLImageElement).src = DEFAULT_GIF
+}
+
+// Quita etiquetas/pre/code y backticks simples para que no se vea “<pre><code…>”
+const summarize = (s?: string) => {
+  if (!s) return ''
+  return s
+    .replace(/```[\s\S]*?```/g, '')         // bloques ```code```
+    .replace(/<\/?pre[^>]*>/g, '')          // <pre>
+    .replace(/<\/?code[^>]*>/g, '')         // <code>
+    .replace(/`([^`]+)`/g, '$1')            // `inline`
+    .replace(/<\/?[^>]+>/g, '')             // cualquier otra etiqueta HTML
+    .trim()
 }
 
 /** Featured models */
 const { data: featuredModels, pending: pendingFeatured } = await useAsyncData<Model[]>(
   'home-featured-models',
-  () => listModels({
-    sort: { power_hp: -1, year: -1 },
-    limit: 6
-  })
+  () => listModels({ sort: { power_hp: -1, year: -1 }, limit: 6 })
 )
 
-/** Conteos rápidos (simple: traer listas y contar) */
+/** Conteos rápidos */
 const { data: allModels } = await useAsyncData<Model[]>(
   'home-models-count',
-  () => listModels({ limit: 1000 }) // si tienes muchos, crea un endpoint de count en servicios
+  () => listModels({ limit: 1000 })
 )
 
 const { data: allManufacturers } = await useAsyncData<any[]>(
   'home-manufacturers-count',
-  () => listManufacturers({ limit: 1000 })
+  () => import('~/lib/services/manufacturers').then(m => m.listManufacturers({ limit: 1000 }))
 )
 
 const { data: allDesigners } = await useAsyncData<any[]>(
   'home-designers-count',
-  () => listDesigners({ limit: 1000 })
+  () => import('~/lib/services/designers').then(d => d.listDesigners({ limit: 1000 }))
 )
 
 const totalModels = computed(() => allModels.value?.length ?? 0)
 const totalManufacturers = computed(() => allManufacturers.value?.length ?? 0)
 const totalDesigners = computed(() => allDesigners.value?.length ?? 0)
-
-/* ===== Efecto spotlight opcional (sigue el mouse) ===== */
-if (typeof window !== 'undefined') {
-  const onMove = (e: MouseEvent) => {
-    const cards = document.querySelectorAll<HTMLElement>('.navigation-grid .nav-card')
-    cards.forEach(card => {
-      const r = card.getBoundingClientRect()
-      const mx = ((e.clientX - r.left) / r.width) * 100
-      const my = ((e.clientY - r.top) / r.height) * 100
-      card.style.setProperty('--mx', `${mx}%`)
-      card.style.setProperty('--my', `${my}%`)
-    })
-  }
-  window.addEventListener('mousemove', onMove, { passive: true })
-}
 </script>
 
 

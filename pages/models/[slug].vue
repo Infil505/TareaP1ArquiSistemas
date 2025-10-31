@@ -2,55 +2,58 @@
 import { useAsyncData } from 'nuxt/app'
 import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { getModelBySlug, listModels, toAssetUrl } from '~/lib/services/models'
+import { getModelBySlug, listModels } from '~/lib/services/models'
+import type { Model as ServiceModel } from '~/lib/services/models'
 
-type Model = {
-  _id: string
+// Extiende el tipo del servicio con los campos que usa la vista
+type ViewModel = ServiceModel & {
   _path?: string
-  slug: string
-  name: string
-  image?: string | { path?: string }
-  img?: string | { path?: string }
-  summary?: string
-  body?: any
-  year?: number
   date?: string
-  country?: string
+  displayImage?: string
+
+  // Campos usados en el template:
   engine?: string
   drivetrain?: string
   power_hp?: number
   top_speed_kmh?: number
+  country?: string
+  year?: number
+  summary?: string
+  body?: any
   manufacturer_slug?: string
   designer_slugs?: string[]
 }
 
 const slug = useRoute().params.slug as string
 
-// Carga modelo
-const { data: model, pending } = await useAsyncData<Model | null>(
+// GIF por defecto si no llega imagen o falla la carga
+const DEFAULT_GIF = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
+
+// Carga modelo por slug
+const { data: model, pending } = await useAsyncData<ViewModel | null>(
   `model-${slug}`,
   async () => {
-    const m = await getModelBySlug(slug)
-    if (!m) return null
-    return {
-      ...m,
-      image: typeof m.image === 'object' ? toAssetUrl(m.image) : m.image,
-      img: typeof m.img === 'object' ? toAssetUrl(m.img) : m.img
-    }
+    const m = await getModelBySlug(slug) // ServiceModel | null
+    return m ? ({ ...m } as ViewModel) : null
   }
 )
 
-type ModelForNav = Pick<Model, '_path' | 'name' | 'slug' | 'year' | 'date'>
+type ModelForNav = Pick<ViewModel, '_path' | 'name' | 'slug' | 'year' | 'date'>
 
-// ✅ Tipamos el retorno de listModels para evitar 'unknown'
+// Lista para navegación
 const { data: list } = await useAsyncData<ModelForNav[]>(
   'models-for-nav',
   async (): Promise<ModelForNav[]> => {
-    const res = await listModels({ limit: 99 }) as { entries?: ModelForNav[] }
-    return res.entries ?? []
+    const arr = await listModels({ limit: 99 }) // ServiceModel[]
+    return arr.map(m => ({
+      _path: (m as any)._path,
+      name: m.name,
+      slug: m.slug,
+      year: m.year,
+      date: (m as any).date
+    }))
   }
 )
-
 
 const prev = computed(() => {
   const arr = list.value ?? []
@@ -64,15 +67,16 @@ const next = computed(() => {
   return (i >= 0 && i < arr.length - 1) ? arr[i + 1] : null
 })
 
-const getImage = (m: Model | null): string => {
-  if (!m) return '/images/default-car.jpg'
-  if (typeof m.image === 'string') return m.image
-  if (typeof m.img === 'string') return m.img
-  if (m.image && typeof m.image === 'object') return toAssetUrl(m.image)
-  if (m.img && typeof m.img === 'object') return toAssetUrl(m.img)
-  return '/images/default-car.jpg'
+// Usa la imagen normalizada (displayImage) o GIF por defecto
+const getImage = (m: ViewModel | null): string => {
+  if (!m) return DEFAULT_GIF
+  return (m as any).displayImage || DEFAULT_GIF
 }
 
+// Si falla la imagen, usa GIF
+const onImgError = (e: Event) => {
+  (e.target as HTMLImageElement).src = DEFAULT_GIF
+}
 
 // Movimiento 3D del auto
 const stageEl = ref<HTMLElement | null>(null)
@@ -95,10 +99,31 @@ onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
       <NuxtLink to="/" class="tb-home">🏠</NuxtLink>
     </header>
 
-    <section class="hero">
+    <!-- LOADING -->
+    <section v-if="pending" class="hero" aria-busy="true">
+      <div class="hero-stage">
+        <div class="glow"></div>
+        <div class="car" style="width:80%;height:50vh;background:#111;border-radius:12px;"></div>
+        <div class="shine"></div>
+      </div>
+      <div class="hero-overlay">
+        <h1 class="title">Cargando…</h1>
+        <p class="slogan">Preparando detalles del modelo</p>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section v-else-if="model" class="hero">
       <div ref="stageEl" class="hero-stage">
         <div class="glow"></div>
-        <img :src="getImage(model)" :alt="model?.name" class="car" v-if="model" />
+        <img
+          :src="getImage(model)"
+          :alt="model?.name || 'Modelo'"
+          class="car"
+          loading="eager"
+          decoding="async"
+          @error="onImgError"
+        />
         <div class="shine"></div>
       </div>
 
@@ -108,10 +133,24 @@ onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
       </div>
     </section>
 
-    <section class="content">
+    <!-- EMPTY -->
+    <section v-else class="hero">
+      <div class="hero-stage">
+        <div class="glow"></div>
+        <div class="shine"></div>
+      </div>
+      <div class="hero-overlay">
+        <h1 class="title">Modelo no encontrado</h1>
+        <p class="slogan">Intenta volver al listado de modelos.</p>
+      </div>
+    </section>
+
+    <!-- CONTENT -->
+    <section class="content" v-if="model">
       <article>
         <p class="lead">{{ model?.summary || 'Un superdeportivo que conquista miradas y corazones.' }}</p>
-        <ContentRenderer v-if="model?.body" :value="model" class="cms" />
+        <!-- Pasar el body al ContentRenderer -->
+        <ContentRenderer v-if="model?.body" :value="model.body" class="cms" />
       </article>
 
       <aside class="specs">
@@ -124,6 +163,7 @@ onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
           <li v-if="model?.country">Origen: <strong>{{ model.country }}</strong></li>
           <li v-if="model?.year">Año: <strong>{{ model.year }}</strong></li>
         </ul>
+
         <NuxtLink v-if="model?.manufacturer_slug" :to="`/manufacturers/${model.manufacturer_slug}`" class="buy-btn">
           Información del fabricante
         </NuxtLink>
