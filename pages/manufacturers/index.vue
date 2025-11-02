@@ -2,12 +2,21 @@
   <div class="manufacturers-container theme-blue">
     <header class="manufacturers-header">
       <h1 class="manufacturers-title">Fabricantes</h1>
-      <p class="manufacturers-subtitle">Conoce las marcas más prestigiosas del mundo automotriz</p>
+      <p class="manufacturers-subtitle">
+        Conoce las marcas más prestigiosas del mundo automotriz
+      </p>
     </header>
 
     <div v-if="manufacturers?.length" class="manufacturers-grid">
-      <article v-for="m in manufacturers" :key="m._id" class="manufacturer-card">
-        <NuxtLink :to="`/manufacturers/${m.slug}`" class="manufacturer-link">
+      <article
+        v-for="m in manufacturers"
+        :key="m._id || safeSlugFrom(m)"
+        class="manufacturer-card"
+      >
+        <NuxtLink
+          :to="`/manufacturers/${m._id || safeSlugFrom(m)}`"
+          class="manufacturer-link"
+        >
           <div class="manufacturer-image-container">
             <img
               :src="getLogo(m)"
@@ -24,7 +33,9 @@
               <span v-if="m.country" class="badge">{{ m.country }}</span>
               <span v-if="m.founded" class="badge">Fundado: {{ m.founded }}</span>
             </div>
-            <p v-if="m.bio" class="manufacturer-bio">{{ m.bio }}</p>
+            <p v-if="m.bio" class="manufacturer-bio">
+              {{ cleanText(m.bio) }}
+            </p>
           </div>
         </NuxtLink>
       </article>
@@ -41,22 +52,60 @@
 </template>
 
 <script setup lang="ts">
-import { listManufacturers, toAssetUrl, type Manufacturer } from '~/lib/services/manufacturers'
+import { useAsyncData } from 'nuxt/app'
+import { listManufacturers, toAssetUrl, type Manufacturer as ServiceManufacturer } from '~/lib/services/manufacturers'
 
-// Normalizador seguro para logos
+/* ---------- Helpers de slug ---------- */
+const slugify = (s: string) =>
+  (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const safeSlugFrom = (m: { slug?: string; name: string }) =>
+  slugify(m?.slug && m.slug.trim().length ? m.slug : m.name)
+
+/* ---------- Tipo extendido ---------- */
+type Manufacturer = ServiceManufacturer & {
+  _id?: string
+  displayLogo?: string
+  bio?: string
+  founded?: number
+  country?: string
+}
+
+/* ---------- Imagen con fallback ---------- */
+const DEFAULT_GIF = 'https://i.pinimg.com/originals/a8/28/88/a828888852e708d9afaaad06c7f9513f.gif'
+
 const getLogo = (m: Manufacturer): string => {
-  return toAssetUrl(m.logo) || '/images/default-logo.jpg'
+  return (
+    m.displayLogo ||
+    toAssetUrl(m.logo) ||
+    DEFAULT_GIF
+  )
 }
 
-// Imagen por defecto en caso de error
-const handleImageError = (event: Event) => {
-  (event.target as HTMLImageElement).src = '/images/default-logo.jpg'
+const handleImageError = (e: Event) => {
+  (e.target as HTMLImageElement).src = DEFAULT_GIF
 }
 
-// ✅ listManufacturers devuelve Manufacturer[] directamente
+/* ---------- Limpieza del texto ---------- */
+const cleanText = (s?: string) => {
+  if (!s) return ''
+  return s
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/<\/?pre[^>]*>/g, '')
+    .replace(/<\/?code[^>]*>/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/<\/?[^>]+>/g, '')
+    .trim()
+}
+
+/* ---------- Datos ---------- */
 const { data: manufacturers, pending } = await useAsyncData<Manufacturer[]>(
   'manufacturers',
-  () => listManufacturers({ limit: 99 })
+  () => listManufacturers({ limit: 99 }) as unknown as Promise<Manufacturer[]>
 )
 </script>
 

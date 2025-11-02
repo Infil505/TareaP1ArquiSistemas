@@ -2,16 +2,34 @@
 import { useAsyncData } from 'nuxt/app'
 import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { getModelBySlug, listModels } from '~/lib/services/models'
+import { getModelBySlug, getModelById, listModels } from '~/lib/services/models'
 import type { Model as ServiceModel } from '~/lib/services/models'
 
-// Extiende el tipo del servicio con los campos que usa la vista
+/** Utils slug */
+const slugify = (s: string) =>
+  (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const safeSlugFrom = (m: { slug?: string; name: string }) =>
+  slugify(m?.slug && m.slug.trim().length ? m.slug : m.name)
+
+/** Fix de typos comunes */
+const fixCommonSlugIssues = (s: string) => {
+  if (s.startsWith('amborghini-')) return 'l' + s
+  return s
+}
+
+/** ¿Parece _id de Cockpit? (24 hex) */
+const looksLikeId = (v: string) => /^[a-f0-9]{24}$/i.test(v)
+
+/** Tipos de la vista */
 type ViewModel = ServiceModel & {
   _path?: string
   date?: string
   displayImage?: string
-
-  // Campos usados en el template:
   engine?: string
   drivetrain?: string
   power_hp?: number
@@ -24,61 +42,77 @@ type ViewModel = ServiceModel & {
   designer_slugs?: string[]
 }
 
-const slug = useRoute().params.slug as string
+/** Parámetro de ruta: puede ser id o slug */
+const route = useRoute()
+const rawParam = Array.isArray(route.params.slug) ? route.params.slug[0] : (route.params.slug as string)
+const normalizedSlug = fixCommonSlugIssues(slugify(decodeURIComponent(rawParam || '')))
 
-// GIF por defecto si no llega imagen o falla la carga
+/** Fallback de imagen */
 const DEFAULT_GIF = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
 
-// Carga modelo por slug
+/** Carga por id → fallback a slug normalizado */
 const { data: model, pending } = await useAsyncData<ViewModel | null>(
-  `model-${slug}`,
+  `model-${rawParam}`,
   async () => {
-    const m = await getModelBySlug(slug) // ServiceModel | null
-    return m ? ({ ...m } as ViewModel) : null
+    let m: ServiceModel | null = null
+    if (looksLikeId(rawParam)) {
+      m = await getModelById(rawParam)
+      if (m) return m as ViewModel
+    }
+    m = await getModelBySlug(normalizedSlug)
+    return m ? (m as ViewModel) : null
   }
 )
 
+/** Lista para navegación con slugs seguros */
 type ModelForNav = Pick<ViewModel, '_path' | 'name' | 'slug' | 'year' | 'date'>
-
-// Lista para navegación
 const { data: list } = await useAsyncData<ModelForNav[]>(
   'models-for-nav',
   async (): Promise<ModelForNav[]> => {
-    const arr = await listModels({ limit: 99 }) // ServiceModel[]
+    const arr = await listModels({ limit: 99 })
     return arr.map(m => ({
       _path: (m as any)._path,
       name: m.name,
-      slug: m.slug,
+      slug: safeSlugFrom(m),
       year: m.year,
       date: (m as any).date
     }))
   }
 )
 
+const plainSummary = (raw?: string) => {
+  if (!raw) return ''
+  return raw
+    .replace(/<\/?pre[^>]*>/g, '')
+    .replace(/<\/?code[^>]*>/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/<\/?[^>]+>/g, '') // elimina cualquier otra etiqueta HTML
+    .trim()
+}
+
+
+/** Prev/Next: si entré por id, comparo contra el slug normalizado */
+const keyForCompare = computed(() => (looksLikeId(rawParam) ? normalizedSlug : normalizedSlug))
 const prev = computed(() => {
   const arr = list.value ?? []
-  const i = arr.findIndex(d => d.slug === slug)
+  const i = arr.findIndex(d => d.slug === keyForCompare.value)
   return i > 0 ? arr[i - 1] : null
 })
-
 const next = computed(() => {
   const arr = list.value ?? []
-  const i = arr.findIndex(d => d.slug === slug)
+  const i = arr.findIndex(d => d.slug === keyForCompare.value)
   return (i >= 0 && i < arr.length - 1) ? arr[i + 1] : null
 })
 
-// Usa la imagen normalizada (displayImage) o GIF por defecto
+/** Imagen */
 const getImage = (m: ViewModel | null): string => {
   if (!m) return DEFAULT_GIF
   return (m as any).displayImage || DEFAULT_GIF
 }
+const onImgError = (e: Event) => { (e.target as HTMLImageElement).src = DEFAULT_GIF }
 
-// Si falla la imagen, usa GIF
-const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = DEFAULT_GIF
-}
-
-// Movimiento 3D del auto
+/** Parallax */
 const stageEl = ref<HTMLElement | null>(null)
 const onMove = (e: MouseEvent) => {
   const stage = stageEl.value; if (!stage) return
@@ -90,7 +124,12 @@ const onMove = (e: MouseEvent) => {
 }
 onMounted(() => window.addEventListener('mousemove', onMove))
 onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
+
+/** Debug */
+console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
 </script>
+
+
 
 <template>
   <div class="detail-page">
@@ -148,7 +187,7 @@ onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
     <!-- CONTENT -->
     <section class="content" v-if="model">
       <article>
-        <p class="lead">{{ model?.summary || 'Un superdeportivo que conquista miradas y corazones.' }}</p>
+        <p class="lead">{{ plainSummary(model?.summary) || 'Un superdeportivo que conquista miradas y corazones.' }}</p>
         <!-- Pasar el body al ContentRenderer -->
         <ContentRenderer v-if="model?.body" :value="model.body" class="cms" />
       </article>

@@ -76,7 +76,7 @@ async function getAntiBotCookie(base: string, token: string): Promise<string | n
     const params = extractAESParams(htmlResponse)
     
     if (!params) {
-      console.error('❌ No se pudieron extraer parámetros AES')
+      console.error(' No se pudieron extraer parámetros AES')
       return null
     }
     
@@ -86,11 +86,11 @@ async function getAntiBotCookie(base: string, token: string): Promise<string | n
     // Guardar en caché con timestamp
     cookieStore.set(cacheKey, `${cookie}|||${Date.now()}`)
     
-    console.log('✅ Cookie generada:', cookie.substring(0, 50) + '...')
+    console.log(' Cookie generada:', cookie.substring(0, 50) + '...')
     return cookie
     
   } catch (error) {
-    console.error('❌ Error obteniendo cookie:', error)
+    console.error(' Error obteniendo cookie:', error)
     return null
   }
 }
@@ -125,7 +125,7 @@ export default defineEventHandler(async (event) => {
   
   // Si es POST a /content/items/{model}, convertir a GET con query string
   if (method === 'POST' && normalizedPath.match(/^content\/items\/\w+$/)) {
-    console.log('🔄 Convirtiendo POST /content/items a GET con query params')
+    console.log(' Convirtiendo POST /content/items a GET con query params')
     method = 'GET'
     // El body se enviará como query params más abajo
   }
@@ -160,7 +160,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Hacer petición con la cookie (exactamente como en el test)
-  console.log('🚀 Haciendo petición con cookie...')
+  console.log(' Haciendo petición con cookie...')
   
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -192,7 +192,7 @@ export default defineEventHandler(async (event) => {
     
     // Verificar si recibimos HTML (sesión inválida)
     if (typeof response === 'object' && 'isHtml' in response) {
-      console.warn('⚠️ Recibido HTML, regenerando cookie...')
+      console.warn(' Recibido HTML, regenerando cookie...')
       
       // Limpiar caché y reintentar UNA vez
       cookieStore.delete(`${base}:session`)
@@ -225,16 +225,16 @@ export default defineEventHandler(async (event) => {
           }
         }
       })
-      
-      console.log('✅ Reintento exitoso')
+    
+      console.log(' Reintento exitoso')
       return retryResponse
     }
     
-    console.log('✅ Respuesta exitosa')
+    console.log(' Respuesta exitosa')
     return response
     
   } catch (error: any) {
-    console.error('❌ Error en petición:', {
+    console.error(' Error en petición:', {
       url,
       method,
       error: error.message,

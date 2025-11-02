@@ -6,16 +6,11 @@
     </header>
 
     <div v-if="models?.length" class="models-grid">
-      <article v-for="m in models" :key="m._id" class="model-card">
-        <NuxtLink :to="`/models/${m.slug}`" class="card-link">
+      <article v-for="m in models" :key="m._id || safeSlugFrom(m)" class="model-card">
+        <!-- 👉 navega por ID si existe; si no, slug seguro -->
+        <NuxtLink :to="`/models/${m._id || safeSlugFrom(m)}`" class="card-link">
           <div class="card-image">
-            <img
-              :src="getImage(m)"
-              :alt="m.name"
-              loading="lazy"
-              decoding="async"
-              @error="onImgError"
-            />
+            <img :src="getImage(m)" :alt="m.name" loading="lazy" decoding="async" @error="onImgError" />
           </div>
           <div class="card-body">
             <h4 class="card-title">{{ m.name }}</h4>
@@ -23,7 +18,7 @@
               <span v-if="m.year" class="chip">{{ m.year }}</span>
               <span v-if="m.power_hp" class="chip accent">{{ m.power_hp }} hp</span>
             </div>
-            <p v-if="m.summary" class="card-summary">{{ m.summary }}</p>
+            <p v-if="m.summary" class="card-summary">{{ summarize(m.summary) }}</p>
           </div>
         </NuxtLink>
       </article>
@@ -40,31 +35,65 @@
 </template>
 
 <script setup lang="ts">
-import { listModels, type Model } from '~/lib/services/models'
+import { useAsyncData } from 'nuxt/app'
+import { listModels, toAssetUrl, type Model as ServiceModel } from '~/lib/services/models'
 
-// GIF por defecto (solo si no hay imagen)
-const DEFAULT_GIF = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
+/* ---------- Helpers de slug (coherentes con Home) ---------- */
+const slugify = (s: string) =>
+  (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 
-// Toma la imagen normal; si no viene, usa el GIF definido en el servicio (displayImage)
-// y, si por alguna razón displayImage no existe, usa el GIF de respaldo local aquí.
-const getImage = (m: Model): string => {
-  return (m as any).displayImage || DEFAULT_GIF
+const safeSlugFrom = (m: { slug?: string; name: string }) =>
+  slugify(m?.slug && m.slug.trim().length ? m.slug : m.name)
+
+/* ---------- Tipo de vista mínimo ---------- */
+type Model = ServiceModel & {
+  _id?: string
+  displayImage?: string
+  year?: number
+  power_hp?: number
+  summary?: string
 }
 
-// Si falla la imagen, cambiamos al GIF
+/* ---------- Imagen con fallback ---------- */
+type AssetLike = string | { path?: string } | null | undefined
+const DEFAULT_GIF = 'https://i.pinimg.com/originals/a8/28/88/a828888852e708d9afaaad06c7f9513f.gif'
+
+const getImage = (m: Model): string => {
+  return (m.displayImage && m.displayImage.length)
+    ? m.displayImage
+    : (toAssetUrl(m.image as AssetLike) || toAssetUrl(m.img as AssetLike) || DEFAULT_GIF)
+}
+
 const onImgError = (e: Event) => {
   (e.target as HTMLImageElement).src = DEFAULT_GIF
 }
 
-// ✅ listModels devuelve Model[] con displayImage normalizado
+/* ---------- Limpiar summaries con HTML/markdown ---------- */
+const summarize = (s?: string) => {
+  if (!s) return ''
+  return s
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/<\/?pre[^>]*>/g, '')
+    .replace(/<\/?code[^>]*>/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/<\/?[^>]+>/g, '')
+    .trim()
+}
+
+/* ---------- Datos ---------- */
 const { data: models, pending } = await useAsyncData<Model[]>(
   'models',
-  () => listModels({ limit: 99 })
+  () => listModels({ limit: 99 }) as unknown as Promise<Model[]>
 )
 </script>
 
-
 <style scoped>
+/* (mantengo tus estilos tal cual) */
+
 /* =======================
    THEME TOKENS BASE (garaje)
    ======================= */
@@ -78,49 +107,29 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   --text-2: #b3b6c3;
   --line: #232633;
   --fx-white: rgba(255, 255, 255, 0.12);
-
-  /* Accents por defecto (Racing Blue) */
   --accent: #3b82f6;
-  /* blue-500 */
   --accent-2: #06b6d4;
-  /* cyan-500 */
 }
 
-/* =======================
-   THEMES (cambia la clase en el contenedor)
-   ======================= */
-/* Racing Blue (default) */
 .theme-blue {}
 
-/* Rosso Corsa (rojo Ferrari + dorado cálido) */
 .theme-rosso {
   --accent: #ff3131;
-  /* rosso */
   --accent-2: #ffb703;
-  /* dorado */
 }
 
-/* Electric Lime (verde neón + cian) */
 .theme-lime {
   --accent: #a3e635;
-  /* lime-400 */
   --accent-2: #22d3ee;
-  /* cyan-400 */
 }
 
-/* GT Silver (plateado con azul hielo) */
 .theme-silver {
   --bg-card: #14161a;
   --bg-elev: #1a1d23;
   --accent: #cbd5e1;
-  /* slate-300 */
   --accent-2: #60a5fa;
-  /* blue-400 */
 }
 
-/* =======================
-   LAYOUT
-   ======================= */
 .models-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -130,15 +139,12 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   isolation: isolate;
 }
 
-@media (min-width: 768px) {
+@media (min-width:768px) {
   .models-container {
     padding: 2rem;
   }
 }
 
-/* =======================
-   HEADER (fibra + halo del tema)
-   ======================= */
 .models-header {
   text-align: center;
   margin-bottom: 2.4rem;
@@ -146,10 +152,8 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   border-radius: 20px;
   padding: 2rem 1rem 2.2rem;
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  background:
-    repeating-linear-gradient(45deg, #101216 0 2px, #0d0f12 2px 4px),
-    linear-gradient(135deg, var(--bg-hero-1) 0%, var(--bg-hero-2) 55%, #07080a 100%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
+  background: repeating-linear-gradient(45deg, #101216 0 2px, #0d0f12 2px 4px), linear-gradient(135deg, var(--bg-hero-1) 0%, var(--bg-hero-2) 55%, #07080a 100%);
 }
 
 .models-header::before {
@@ -166,11 +170,11 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 .models-title {
   font-size: clamp(2rem, 2rem + 2vw, 3rem);
   font-weight: 900;
-  margin: 0 0 .6rem 0;
+  margin: 0 0 .6rem;
   letter-spacing: .3px;
   line-height: 1.05;
   color: var(--text-1);
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .45);
   position: relative;
 }
 
@@ -195,9 +199,6 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   line-height: 1.6;
 }
 
-/* =======================
-   GRID
-   ======================= */
 .models-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -205,22 +206,19 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   margin-bottom: 2rem;
 }
 
-@media (min-width: 1024px) {
+@media (min-width:1024px) {
   .models-grid {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
 
-/* =======================
-   CARD DE MODELO (usa --accent del tema)
-   ======================= */
 .model-card {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   background: linear-gradient(180deg, var(--bg-elev), var(--bg-card));
   overflow: hidden;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
 }
 
 .model-card:hover {
@@ -264,7 +262,7 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 .card-title {
   font-size: 1.2rem;
   font-weight: 800;
-  margin: 0 0 .5rem 0;
+  margin: 0 0 .5rem;
 }
 
 .card-meta {
@@ -290,9 +288,6 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   border-color: color-mix(in srgb, var(--accent) 68%, #000);
 }
 
-/* =======================
-   EMPTY / LOADING
-   ======================= */
 .loading-state,
 .empty-state {
   text-align: center;
@@ -308,9 +303,6 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   font-size: 1.075rem;
 }
 
-/* =======================
-   REDUCED MOTION
-   ======================= */
 @media (prefers-reduced-motion: reduce) {
 
   .model-card,

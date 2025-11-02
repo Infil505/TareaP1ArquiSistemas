@@ -55,18 +55,17 @@
     <section class="featured-section">
       <div class="section-header">
         <h2 class="section-title">Modelos destacados</h2>
-        <NuxtLink to="/models" class="view-all-link">
-          Ver todos los modelos →
-        </NuxtLink>
+      <NuxtLink to="/models" class="view-all-link">Ver todos los modelos →</NuxtLink>
       </div>
 
       <div v-if="featuredModels?.length" class="featured-grid">
         <article
           v-for="m in featuredModels"
-          :key="m.slug"
+          :key="m._id || m.slug || m.name"
           class="model-card"
         >
-          <NuxtLink :to="`/models/${m.slug}`" class="card-link">
+          <!-- 👉 usa _id si existe; si no, slug seguro -->
+          <NuxtLink :to="`/models/${m._id || safeSlugFrom(m)}`" class="card-link">
             <div class="card-image">
               <img
                 :src="getImage(m)"
@@ -101,17 +100,36 @@
     </section>
   </div>
 </template>
-
-
 <script setup lang="ts">
+import { useAsyncData } from 'nuxt/app'
 import { computed } from 'vue'
 import { listModels, toAssetUrl } from '~/lib/services/models'
-import type { Model } from '~/lib/services/models'
+import type { Model as ServiceModel } from '~/lib/services/models'
 
+// ── Helpers de slug ─────────────────────────────────────────────
+const slugify = (s: string) =>
+  (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const safeSlugFrom = (m: { slug?: string; name: string }) =>
+  slugify(m?.slug && m.slug.trim().length ? m.slug : m.name)
+
+// ── Tipos de vista ──────────────────────────────────────────────
+type Model = ServiceModel & {
+  _id?: string
+  displayImage?: string
+  year?: number
+  power_hp?: number
+  summary?: string
+}
+
+// ── Imagen con fallback ─────────────────────────────────────────
 type AssetLike = string | { path?: string } | null | undefined
 const DEFAULT_GIF = 'https://i.pinimg.com/originals/a8/28/88/a828888852e708d9afaaad06c7f9513f.gif'
 
-// 👉 Usa primero displayImage (normalizada en el service). Si no, image/img. Último recurso: GIF.
 const getImage = (m: Model): string => {
   return (m.displayImage && m.displayImage.length)
     ? m.displayImage
@@ -122,30 +140,30 @@ const onImgError = (e: Event) => {
   (e.target as HTMLImageElement).src = DEFAULT_GIF
 }
 
-// Quita etiquetas/pre/code y backticks simples para que no se vea “<pre><code…>”
+// ── Limpiar summaries con HTML/markdown ─────────────────────────
 const summarize = (s?: string) => {
   if (!s) return ''
   return s
-    .replace(/```[\s\S]*?```/g, '')         // bloques ```code```
-    .replace(/<\/?pre[^>]*>/g, '')          // <pre>
-    .replace(/<\/?code[^>]*>/g, '')         // <code>
-    .replace(/`([^`]+)`/g, '$1')            // `inline`
-    .replace(/<\/?[^>]+>/g, '')             // cualquier otra etiqueta HTML
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/<\/?pre[^>]*>/g, '')
+    .replace(/<\/?code[^>]*>/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/<\/?[^>]+>/g, '')
     .trim()
 }
 
-/** Featured models */
+// ── Datos: destacados y conteos ─────────────────────────────────
 const { data: featuredModels, pending: pendingFeatured } = await useAsyncData<Model[]>(
   'home-featured-models',
-  () => listModels({ sort: { power_hp: -1, year: -1 }, limit: 6 })
+  () => listModels({ sort: { power_hp: -1, year: -1 }, limit: 6 }) as unknown as Promise<Model[]>
 )
 
-/** Conteos rápidos */
 const { data: allModels } = await useAsyncData<Model[]>(
   'home-models-count',
-  () => listModels({ limit: 1000 })
+  () => listModels({ limit: 1000 }) as unknown as Promise<Model[]>
 )
 
+// lazy imports para evitar cargar servicios si no hacen falta
 const { data: allManufacturers } = await useAsyncData<any[]>(
   'home-manufacturers-count',
   () => import('~/lib/services/manufacturers').then(m => m.listManufacturers({ limit: 1000 }))
@@ -160,8 +178,6 @@ const totalModels = computed(() => allModels.value?.length ?? 0)
 const totalManufacturers = computed(() => allManufacturers.value?.length ?? 0)
 const totalDesigners = computed(() => allDesigners.value?.length ?? 0)
 </script>
-
-
 
 
 <style scoped>
