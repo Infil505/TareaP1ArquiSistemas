@@ -233,6 +233,27 @@ useHead(() => ({
       </section>
     </div>
   </div>
+
+  <!-- COMENTARIOS -->
+<section class="comments-section section">
+  <div class="comments-header">
+    <h2 class="comments-title">💬 Comentarios</h2>
+    <p class="comments-subtitle">
+      ¿Qué opinás sobre {{ designer?.name }} y sus modelos?
+    </p>
+  </div>
+
+  <ClientOnly>
+    <Utterances
+      repo="Infil505/TareaP1ArquiSistemas"
+      theme="photon-dark"
+      issue-term="pathname"
+      label="diseñadores"
+      :key="$route.path"   
+    />
+  </ClientOnly>
+</section>
+
 </template>
 
 
@@ -509,5 +530,36 @@ useHead(() => ({
 .m-meta {
   margin: 0;
   opacity: .9
+}
+
+.comments-section {
+  margin-top: 2rem;
+  padding: 2rem 1.5rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #10131a, #0b0f16);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.comments-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.comments-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0 0 .35rem 0;
+  color: #fff;
+  letter-spacing: .3px;
+}
+
+.comments-subtitle {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.5;
 }
 </style>

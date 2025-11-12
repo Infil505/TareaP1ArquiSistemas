@@ -216,6 +216,27 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
       <NuxtLink to="/" class="home">Volver al inicio</NuxtLink>
     </footer>
   </div>
+
+    <!-- COMENTARIOS -->
+<section class="comments-section section">
+  <div class="comments-header">
+    <h2 class="comments-title">💬 Comentarios</h2>
+    <p class="comments-subtitle">
+      ¿Qué opinás sobre el vehiculo {{ model?.name }}?
+    </p>
+  </div>
+
+  <ClientOnly>
+    <Utterances
+      repo="Infil505/TareaP1ArquiSistemas"
+      theme="photon-dark"
+      issue-term="pathname"
+      label="diseñadores"
+      :key="$route.path"   
+    />
+  </ClientOnly>
+</section>
+
 </template>
 
 

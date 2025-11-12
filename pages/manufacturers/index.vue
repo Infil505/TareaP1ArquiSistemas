@@ -48,6 +48,23 @@
     <div v-else class="empty-state">
       <p class="opacity-60">No hay fabricantes disponibles.</p>
     </div>
+
+    <!-- SECCIÓN DE COMENTARIOS -->
+    <section class="comments-section">
+      <div class="comments-header">
+        <h2 class="comments-title">💬 Comentarios</h2>
+        <p class="comments-subtitle">
+          Comparte tu opinión sobre los fabricantes automotrices
+        </p>
+      </div>
+      
+      <Utterances 
+        repo="Infil505/TareaP1ArquiSistemas"
+        theme="photon-dark"
+        issue-term="pathname"
+        label="fabricantes"
+      />
+    </section>
   </div>
 </template>
 
@@ -304,7 +321,7 @@ const { data: manufacturers, pending } = await useAsyncData<Manufacturer[]>(
   margin: .25rem 0 0;
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 3;  /* 3 líneas */
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -323,6 +340,40 @@ const { data: manufacturers, pending } = await useAsyncData<Manufacturer[]>(
 }
 .loading-state p,
 .empty-state p { font-size: 1.075rem; }
+
+/* =======================
+   SECCIÓN DE COMENTARIOS
+   ======================= */
+.comments-section {
+  margin-top: 4rem;
+  padding: 2rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--bg-elev), var(--bg-card));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.comments-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.comments-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-1);
+  letter-spacing: 0.3px;
+}
+
+.comments-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-2);
+  margin: 0;
+  line-height: 1.5;
+}
 
 /* =======================
    REDUCED MOTION
