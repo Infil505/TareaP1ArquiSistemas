@@ -119,7 +119,7 @@ const designersById = computed(() => (designers?.value ?? []).filter(d => !!d._i
 }
 
 /* THEMES */
-.theme-blue {}
+/* .theme-blue uses the default variables defined in :root; the explicit empty ruleset was removed to avoid linter errors */
 .theme-rosso { --accent:#ff3131; --accent-2:#ffb703; }
 .theme-lime  { --accent:#a3e635; --accent-2:#22d3ee; }
 .theme-silver{ --bg-card:#14161a; --bg-elev:#1a1d23; --accent:#cbd5e1; --accent-2:#60a5fa; }
@@ -294,6 +294,7 @@ const designersById = computed(() => (designers?.value ?? []).filter(d => !!d._i
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
