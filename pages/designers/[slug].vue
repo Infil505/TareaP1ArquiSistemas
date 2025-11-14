@@ -4,7 +4,7 @@ import { useAsyncData } from 'nuxt/app'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '#imports'
-import { getDesignerById, type Designer as BaseDesigner } from '~/lib/services/designers'
+import { getDesignerByIdOrSlug, type Designer as BaseDesigner } from '~/lib/services/designers'
 import { listModels, type Model } from '~/lib/services/models'
 
 /* ------------------ Tipos ------------------ */
@@ -33,8 +33,6 @@ const route = useRoute()
 const rawId = Array.isArray(route.params.slug)
   ? route.params.slug[0]
   : (route.params.slug as string)
-
-const looksLikeId = (v: string) => /^[a-f0-9]{24}$/i.test(v)
 
 /* ------------------ Assets / fallbacks ------------------ */
 const BASE = import.meta.env.VITE_COCKPIT_BASE_URL?.replace(/\/$/, '') || ''
@@ -74,9 +72,41 @@ const plainText = (s?: string) => {
 const { data: designer, pending } = await useAsyncData<ViewDesigner | null>(
   `designer-${rawId}`,
   async () => {
-    if (!rawId || !looksLikeId(rawId)) return null
-    const d = await getDesignerById(rawId)
-    return (d as ViewDesigner) ?? null
+    if (!rawId) return null
+    // Primero intentar via servicios (Cockpit proxy)
+    try {
+      const d = await getDesignerByIdOrSlug(rawId)
+      if (d) return (d as ViewDesigner)
+    } catch (e) {
+      // ignore and fallback to local content
+      console.warn('[designer] getDesignerByIdOrSlug failed, falling back to local content', e)
+    }
+
+    // Fallback: intentar con @nuxt/content (contenido local en /content/designers)
+    try {
+      // `queryContent` está auto-importado por @nuxt/content
+      // Buscar por slug o por _path
+      const bySlug = await queryContent('designers').where({ slug: rawId }).findOne()
+      if (bySlug) {
+        const v: any = bySlug
+        return {
+          _id: v._id,
+          slug: v.slug || v._path?.split('/').pop(),
+          name: v.name || v.title,
+          country: v.country,
+          photo: v.photo,
+          bio: v.bio,
+          birth_year: v.birth_year,
+          models: v.models || [],
+          featured_model: v.featured_model,
+          body: v.body || v
+        } as ViewDesigner
+      }
+    } catch (e) {
+      console.warn('[designer] queryContent fallback failed', e)
+    }
+
+    return null
   }
 )
 

@@ -15,7 +15,7 @@
         class="designer-card"
       >
         <NuxtLink
-          :to="`/designers/${d._id}`"
+          :to="`/designers/${d.slug || d._id}`"
           class="designer-link"
         >
           <div class="designer-image-container">
@@ -94,6 +94,8 @@ const { data: designers, pending } = await useAsyncData<Designer[]>(
 
 /* ---------- Solo con _id (para navegar por id) ---------- */
 const designersById = computed(() => (designers?.value ?? []).filter(d => !!d._id))
+
+// Los cards navegan a la página de detalle; no seleccionamos en página
 </script>
 
 
@@ -197,6 +199,10 @@ const designersById = computed(() => (designers?.value ?? []).filter(d => !!d._i
     gap: 1.5rem !important;
   }
 }
+
+/* Layout cuando hay panel lateral */
+/* removed inline-selection panel styles (we navigate to detail page instead) */
+
 
 /* =======================
    CARD
