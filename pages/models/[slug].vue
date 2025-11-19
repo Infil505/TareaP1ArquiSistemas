@@ -27,6 +27,7 @@ const looksLikeId = (v: string) => /^[a-f0-9]{24}$/i.test(v)
 
 /** Tipos de la vista */
 type ViewModel = ServiceModel & {
+  _id?: string
   _path?: string
   date?: string
   displayImage?: string
@@ -40,15 +41,21 @@ type ViewModel = ServiceModel & {
   body?: any
   manufacturer_slug?: string
   designer_slugs?: string[]
+  price?: number
 }
 
 /** Parámetro de ruta: puede ser id o slug */
 const route = useRoute()
-const rawParam = Array.isArray(route.params.slug) ? route.params.slug[0] : (route.params.slug as string)
-const normalizedSlug = fixCommonSlugIssues(slugify(decodeURIComponent(rawParam || '')))
+const rawParam = Array.isArray(route.params.slug)
+  ? route.params.slug[0]
+  : (route.params.slug as string)
+const normalizedSlug = fixCommonSlugIssues(
+  slugify(decodeURIComponent(rawParam || ''))
+)
 
 /** Fallback de imagen */
-const DEFAULT_GIF = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
+const DEFAULT_GIF =
+  'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'
 
 /** Carga por id → fallback a slug normalizado */
 const { data: model, pending } = await useAsyncData<ViewModel | null>(
@@ -70,12 +77,12 @@ const { data: list } = await useAsyncData<ModelForNav[]>(
   'models-for-nav',
   async (): Promise<ModelForNav[]> => {
     const arr = await listModels({ limit: 99 })
-    return arr.map(m => ({
+    return arr.map((m) => ({
       _path: (m as any)._path,
       name: m.name,
       slug: safeSlugFrom(m),
       year: m.year,
-      date: (m as any).date
+      date: (m as any).date,
     }))
   }
 )
@@ -91,18 +98,34 @@ const plainSummary = (raw?: string) => {
     .trim()
 }
 
+/** Formatear precio (igual que en Home y Models) */
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('es-CR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(price)
+}
+
+/** URL canónica del modelo para Snipcart (id o slug) */
+const modelUrl = computed(() => {
+  const m = model.value
+  if (!m) return '/models'
+  return `/models/${m._id || safeSlugFrom(m)}`
+})
 
 /** Prev/Next: si entré por id, comparo contra el slug normalizado */
-const keyForCompare = computed(() => (looksLikeId(rawParam) ? normalizedSlug : normalizedSlug))
+const keyForCompare = computed(() =>
+  looksLikeId(rawParam) ? normalizedSlug : normalizedSlug
+)
 const prev = computed(() => {
   const arr = list.value ?? []
-  const i = arr.findIndex(d => d.slug === keyForCompare.value)
+  const i = arr.findIndex((d) => d.slug === keyForCompare.value)
   return i > 0 ? arr[i - 1] : null
 })
 const next = computed(() => {
   const arr = list.value ?? []
-  const i = arr.findIndex(d => d.slug === keyForCompare.value)
-  return (i >= 0 && i < arr.length - 1) ? arr[i + 1] : null
+  const i = arr.findIndex((d) => d.slug === keyForCompare.value)
+  return i >= 0 && i < arr.length - 1 ? arr[i + 1] : null
 })
 
 /** Imagen */
@@ -110,12 +133,15 @@ const getImage = (m: ViewModel | null): string => {
   if (!m) return DEFAULT_GIF
   return (m as any).displayImage || DEFAULT_GIF
 }
-const onImgError = (e: Event) => { (e.target as HTMLImageElement).src = DEFAULT_GIF }
+const onImgError = (e: Event) => {
+  ;(e.target as HTMLImageElement).src = DEFAULT_GIF
+}
 
 /** Parallax */
 const stageEl = ref<HTMLElement | null>(null)
 const onMove = (e: MouseEvent) => {
-  const stage = stageEl.value; if (!stage) return
+  const stage = stageEl.value
+  if (!stage) return
   const r = stage.getBoundingClientRect()
   const dx = (e.clientX - (r.left + r.width / 2)) / r.width
   const dy = (e.clientY - (r.top + r.height / 2)) / r.height
@@ -129,8 +155,6 @@ onBeforeUnmount(() => window.removeEventListener('mousemove', onMove))
 console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
 </script>
 
-
-
 <template>
   <div class="detail-page">
     <header class="topbar">
@@ -142,7 +166,10 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
     <section v-if="pending" class="hero" aria-busy="true">
       <div class="hero-stage">
         <div class="glow"></div>
-        <div class="car" style="width:80%;height:50vh;background:#111;border-radius:12px;"></div>
+        <div
+          class="car"
+          style="width:80%;height:50vh;background:#111;border-radius:12px;"
+        ></div>
         <div class="shine"></div>
       </div>
       <div class="hero-overlay">
@@ -187,26 +214,87 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
     <!-- CONTENT -->
     <section class="content" v-if="model">
       <article>
-        <p class="lead">{{ plainSummary(model?.summary) || 'Un superdeportivo que conquista miradas y corazones.' }}</p>
+        <p class="lead">
+          {{
+            plainSummary(model?.summary) ||
+            'Un superdeportivo que conquista miradas y corazones.'
+          }}
+        </p>
         <!-- Pasar el body al ContentRenderer -->
-        <ContentRenderer v-if="model?.body" :value="model.body" class="cms" />
+        <ContentRenderer
+          v-if="model?.body"
+          :value="model.body"
+          class="cms"
+        />
       </article>
 
       <aside class="specs">
         <h3>Especificaciones</h3>
         <ul>
-          <li v-if="model?.engine">Motor: <strong>{{ model.engine }}</strong></li>
-          <li v-if="model?.power_hp">Potencia: <strong>{{ model.power_hp }} HP</strong></li>
-          <li v-if="model?.top_speed_kmh">Vel. Máxima: <strong>{{ model.top_speed_kmh }} km/h</strong></li>
-          <li v-if="model?.drivetrain">Tracción: <strong>{{ model.drivetrain }}</strong></li>
-          <li v-if="model?.country">Origen: <strong>{{ model.country }}</strong></li>
-          <li v-if="model?.year">Año: <strong>{{ model.year }}</strong></li>
+          <li v-if="model?.engine">
+            Motor: <strong>{{ model.engine }}</strong>
+          </li>
+          <li v-if="model?.power_hp">
+            Potencia: <strong>{{ model.power_hp }} HP</strong>
+          </li>
+          <li v-if="model?.top_speed_kmh">
+            Vel. Máxima:
+            <strong>{{ model.top_speed_kmh }} km/h</strong>
+          </li>
+          <li v-if="model?.drivetrain">
+            Tracción: <strong>{{ model.drivetrain }}</strong>
+          </li>
+          <li v-if="model?.country">
+            Origen: <strong>{{ model.country }}</strong>
+          </li>
+          <li v-if="model?.year">
+            Año: <strong>{{ model.year }}</strong>
+          </li>
         </ul>
 
-        <NuxtLink v-if="model?.manufacturer_slug" :to="`/manufacturers/${model.manufacturer_slug}`" class="buy-btn">
+        <!-- 💰 Bloque de precio + botón de carrito -->
+        <div v-if="model?.price" class="specs-price">
+          <span class="price-label">Precio estimado</span>
+          <span class="price-main">
+            ₡{{ formatPrice(model.price) }}
+          </span>
+        </div>
+
+        <button
+          v-if="model?.price && model.price > 0"
+          class="snipcart-add-item add-to-cart-btn"
+          :data-item-id="model._id || safeSlugFrom(model)"
+          :data-item-name="model.name"
+          :data-item-price="model.price"
+          :data-item-url="modelUrl"
+          :data-item-image="getImage(model)"
+          :data-item-description="
+            plainSummary(model.summary) || 'Superdeportivo exclusivo'
+          "
+        >
+          🛒 Agregar al carrito
+        </button>
+        <button
+          v-else
+          class="add-to-cart-btn disabled"
+          disabled
+          title="Precio no disponible"
+        >
+          Precio no disponible
+        </button>
+
+        <NuxtLink
+          v-if="model?.manufacturer_slug"
+          :to="`/manufacturers/${model.manufacturer_slug}`"
+          class="buy-btn"
+        >
           Información del fabricante
         </NuxtLink>
-        <NuxtLink v-if="model?.designer_slugs?.length" :to="`/designers/${model.designer_slugs[0]}`" class="buy-btn">
+        <NuxtLink
+          v-if="model?.designer_slugs?.length"
+          :to="`/designers/${model.designer_slugs[0]}`"
+          class="buy-btn"
+        >
           Información del diseñador
         </NuxtLink>
       </aside>
@@ -217,28 +305,26 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
     </footer>
   </div>
 
-    <!-- COMENTARIOS -->
-<section class="comments-section section">
-  <div class="comments-header">
-    <h2 class="comments-title">💬 Comentarios</h2>
-    <p class="comments-subtitle">
-      ¿Qué opinás sobre el vehiculo {{ model?.name }}?
-    </p>
-  </div>
+  <!-- COMENTARIOS -->
+  <section class="comments-section section">
+    <div class="comments-header">
+      <h2 class="comments-title">💬 Comentarios</h2>
+      <p class="comments-subtitle">
+        ¿Qué opinás sobre el vehiculo {{ model?.name }}?
+      </p>
+    </div>
 
-  <ClientOnly>
-    <Utterances
-      repo="Infil505/TareaP1ArquiSistemas"
-      theme="photon-dark"
-      issue-term="pathname"
-      label="diseñadores"
-      :key="$route.path"   
-    />
-  </ClientOnly>
-</section>
-
+    <ClientOnly>
+      <Utterances
+        repo="Infil505/TareaP1ArquiSistemas"
+        theme="photon-dark"
+        issue-term="pathname"
+        label="diseñadores"
+        :key="$route.path"
+      />
+    </ClientOnly>
+  </section>
 </template>
-
 
 <style scoped>
 .detail-page {
@@ -427,6 +513,7 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
 .buy-btn {
   display: inline-block;
   margin-top: 1.2rem;
+  margin-right: 0.5rem;
   padding: .9rem 1.4rem;
   background: #e83d4a;
   color: #fff;
@@ -553,6 +640,66 @@ console.log('[detail] rawParam:', rawParam, 'normalizedSlug:', normalizedSlug)
 
 .specs strong {
   color: #ffffff
+}
+
+/* Bloque de precio + botón carrito */
+.specs-price {
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.price-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+}
+
+.price-main {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffe082;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .6);
+}
+
+/* Botón Snipcart */
+.add-to-cart-btn {
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  background: #f5b301;
+  color: #0a0b0d;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 6px 16px rgba(245, 179, 1, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.add-to-cart-btn:hover:not(.disabled) {
+  background: #ffc940;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 179, 1, 0.45);
+}
+
+.add-to-cart-btn:active:not(.disabled) {
+  transform: translateY(0);
+}
+
+.add-to-cart-btn.disabled {
+  background: #2a2b30;
+  color: #6b6c72;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Barra superior y botones más visibles */

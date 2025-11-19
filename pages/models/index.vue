@@ -6,11 +6,24 @@
     </header>
 
     <div v-if="models?.length" class="models-grid">
-      <article v-for="m in models" :key="m._id || safeSlugFrom(m)" class="model-card">
+      <article
+        v-for="m in models"
+        :key="m._id || safeSlugFrom(m)"
+        class="model-card"
+      >
         <!-- 👉 navega por ID si existe; si no, slug seguro -->
-        <NuxtLink :to="`/models/${m._id || safeSlugFrom(m)}`" class="card-link">
+        <NuxtLink
+          :to="`/models/${m._id || safeSlugFrom(m)}`"
+          class="card-link"
+        >
           <div class="card-image">
-            <img :src="getImage(m)" :alt="m.name" loading="lazy" decoding="async" @error="onImgError" />
+            <img
+              :src="getImage(m)"
+              :alt="m.name"
+              loading="lazy"
+              decoding="async"
+              @error="onImgError"
+            />
           </div>
           <div class="card-body">
             <h4 class="card-title">{{ m.name }}</h4>
@@ -18,9 +31,42 @@
               <span v-if="m.year" class="chip">{{ m.year }}</span>
               <span v-if="m.power_hp" class="chip accent">{{ m.power_hp }} hp</span>
             </div>
-            <p v-if="m.summary" class="card-summary">{{ summarize(m.summary) }}</p>
+            <p v-if="m.summary" class="card-summary">
+              {{ summarize(m.summary) }}
+            </p>
           </div>
         </NuxtLink>
+
+        <!-- 👉 Zona de precio + botón agregar al carrito (igual que en Home) -->
+        <div class="card-actions">
+          <span v-if="m.price" class="price-chip">
+            ₡{{ formatPrice(m.price) }}
+          </span>
+          <span v-else class="price-chip price-unavailable">
+            Consultar precio
+          </span>
+
+          <button
+            v-if="m.price && m.price > 0"
+            class="snipcart-add-item add-to-cart-btn"
+            :data-item-id="m._id || safeSlugFrom(m)"
+            :data-item-name="m.name"
+            :data-item-price="m.price"
+            :data-item-url="`/models/${m._id || safeSlugFrom(m)}`"
+            :data-item-image="getImage(m)"
+            :data-item-description="summarize(m.summary) || 'Superdeportivo exclusivo'"
+          >
+            🛒 Agregar
+          </button>
+          <button
+            v-else
+            class="add-to-cart-btn disabled"
+            disabled
+            title="Precio no disponible"
+          >
+            No disponible
+          </button>
+        </div>
       </article>
     </div>
 
@@ -49,13 +95,22 @@ const slugify = (s: string) =>
 const safeSlugFrom = (m: { slug?: string; name: string }) =>
   slugify(m?.slug && m.slug.trim().length ? m.slug : m.name)
 
-/* ---------- Tipo de vista mínimo ---------- */
+/* ---------- Tipo de vista ---------- */
 type Model = ServiceModel & {
   _id?: string
   displayImage?: string
   year?: number
   power_hp?: number
   summary?: string
+  price?: number
+}
+
+/* ---------- Formatear precio (igual que en Home) ---------- */
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('es-CR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(price)
 }
 
 /* ---------- Imagen con fallback ---------- */
@@ -92,8 +147,6 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 </script>
 
 <style scoped>
-/* (mantengo tus estilos tal cual) */
-
 /* =======================
    THEME TOKENS BASE (garaje)
    ======================= */
@@ -153,7 +206,9 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   padding: 2rem 1rem 2.2rem;
   overflow: hidden;
   box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
-  background: repeating-linear-gradient(45deg, #101216 0 2px, #0d0f12 2px 4px), linear-gradient(135deg, var(--bg-hero-1) 0%, var(--bg-hero-2) 55%, #07080a 100%);
+  background:
+    repeating-linear-gradient(45deg, #101216 0 2px, #0d0f12 2px 4px),
+    linear-gradient(135deg, var(--bg-hero-1) 0%, var(--bg-hero-2) 55%, #07080a 100%);
 }
 
 .models-header::before {
@@ -219,6 +274,8 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   overflow: hidden;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
   box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
 }
 
 .model-card:hover {
@@ -232,7 +289,7 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   flex-direction: column;
   color: inherit;
   text-decoration: none;
-  height: 100%;
+  flex: 1;
 }
 
 .card-image {
@@ -288,6 +345,64 @@ const { data: models, pending } = await useAsyncData<Model[]>(
   border-color: color-mix(in srgb, var(--accent) 68%, #000);
 }
 
+/* ---------- Acciones de la tarjeta (precio + botón carrito) ---------- */
+.card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, transparent, rgba(245, 179, 1, 0.03));
+  gap: 0.5rem;
+}
+
+.price-chip {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f5b301; /* mantengo mismo feeling dorado del home */
+  white-space: nowrap;
+}
+
+.price-unavailable {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.add-to-cart-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: #f5b301;
+  color: #0a0b0d;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 4px 12px rgba(245, 179, 1, 0.3);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.add-to-cart-btn:hover:not(.disabled) {
+  background: #ffc940;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 179, 1, 0.4);
+}
+
+.add-to-cart-btn:active:not(.disabled) {
+  transform: translateY(0);
+}
+
+.add-to-cart-btn.disabled {
+  background: #2a2b30;
+  color: #6b6c72;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .loading-state,
 .empty-state {
   text-align: center;
@@ -301,6 +416,19 @@ const { data: models, pending } = await useAsyncData<Model[]>(
 .loading-state p,
 .empty-state p {
   font-size: 1.075rem;
+}
+
+/* Responsive: botón ocupa todo el ancho en móvil */
+@media (max-width: 768px) {
+  .card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .add-to-cart-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

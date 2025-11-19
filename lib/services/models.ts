@@ -20,6 +20,8 @@ export interface Model {
   manufacturer?: unknown;
   designer?: unknown;
   displayImage?: string;
+  /** Precio en colones (CRC). Si no viene de Cockpit, se genera uno demo. */
+  price?: number;
 }
 
 type ListParams = {
@@ -55,8 +57,7 @@ const j = (v: any) => {
 };
 
 /**
- * Normaliza el modelo para asegurar que siempre tenga algo que mostrar.
- * Si no trae imagen ni img, usa un GIF predeterminado.
+ * Slugify simple
  */
 const slugify = (s: string) =>
   s
@@ -65,8 +66,37 @@ const slugify = (s: string) =>
     .replace(/[^\w\s-]/g, "") // quita signos raros
     .replace(/\s+/g, "-"); // espacios → guiones
 
+/**
+ * Genera un precio demo *estable* para un modelo, usando slug/name como semilla.
+ * Rango aproximado: ₡45.000.000 - ₡190.000.000 (superdeportivos).
+ */
+const computeDemoPrice = (m: Model): number => {
+  const key = (m.slug || m.name || "model").toString();
+  let hash = 0;
+
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0; // int32
+  }
+
+  const min = 45_000;
+  const max = 190_000;
+  const range = max - min;
+
+  // Normalizar hash a [0,1]
+  const normalized = Math.abs(hash) / 0x7fffffff;
+  const raw = min + range * normalized;
+
+  // Redondear a miles (para que no queden precios súper feos)
+  return Math.round(raw / 1_000) * 1_000;
+};
+
+/**
+ * Normaliza el modelo para asegurar que siempre tenga algo que mostrar.
+ * Si no trae imagen ni img, usa un GIF predeterminado.
+ * Si no trae price, se le asigna un precio demo.
+ */
 const normalizeModel = (m: Model): Model => {
-  const n = { ...m };
+  const n: Model = { ...m };
 
   // 🔹 Slug seguro (si no hay, lo generamos con name)
   n.slug = n.slug ? slugify(n.slug) : n.name ? slugify(n.name) : "";
@@ -75,10 +105,14 @@ const normalizeModel = (m: Model): Model => {
   const imageUrl = toAssetUrl(n.image) || toAssetUrl(n.img) || "";
   n.displayImage = imageUrl !== "" ? imageUrl : DEFAULT_GIF;
 
+  // 🔹 Precio demo (solo si no viene de Cockpit)
+  if (typeof n.price !== "number" || Number.isNaN(n.price)) {
+    n.price = computeDemoPrice(n);
+  }
+
   return n;
 };
 
-/** LISTAR (POST /content/items/{model}) */
 /** LISTAR (POST /content/items/{model}) */
 export async function listModels(p: ListParams = {}): Promise<Model[]> {
   const {
@@ -114,7 +148,9 @@ export async function listModels(p: ListParams = {}): Promise<Model[]> {
     console.log("📥 [listModels] Respuesta completa desde Cockpit:", res);
 
     console.log(
-      `📦 [listModels] Total meta.total: ${res.meta?.total ?? "N/A"} | data.length: ${res.data?.length ?? 0}`
+      `📦 [listModels] Total meta.total: ${
+        res.meta?.total ?? "N/A"
+      } | data.length: ${res.data?.length ?? 0}`
     );
 
     if (res.data?.length) {
@@ -129,7 +165,7 @@ export async function listModels(p: ListParams = {}): Promise<Model[]> {
 
     const items = (res.data ?? []).map(normalizeModel);
 
-    // 🔹 Mostrar los modelos normalizados (ya con displayImage listo)
+    // 🔹 Mostrar los modelos normalizados (ya con displayImage y price)
     console.group("✨ [listModels] Modelos normalizados:");
     console.table(
       items.map((m) => ({
@@ -138,6 +174,7 @@ export async function listModels(p: ListParams = {}): Promise<Model[]> {
         displayImage: m.displayImage,
         power_hp: m.power_hp ?? "—",
         year: m.year ?? "—",
+        price: m.price ?? "—",
       }))
     );
     console.groupEnd();
@@ -151,109 +188,122 @@ export async function listModels(p: ListParams = {}): Promise<Model[]> {
 }
 
 // Utilidad para regex seguro en filtros
-const escapeRegExp = (s = '') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const escapeRegExp = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** OBTENER POR ID (GET /content/item/{MODEL}/{id}) */
 export async function getModelById(id: string): Promise<Model | null> {
-  console.log('📤 [getModelById] Enviando petición a Cockpit:', {
+  console.log("📤 [getModelById] Enviando petición a Cockpit:", {
     endpoint: `content/item/${MODEL}/${id}`,
-    method: 'GET'
-  })
+    method: "GET",
+  });
 
   try {
     // Cockpit suele devolver el documento "plano" (no envuelto en {data})
     const res = await cockpitFetch<any>(`content/item/${MODEL}/${id}`, {
-      method: 'GET'
-    })
+      method: "GET",
+    });
 
-    console.log('📥 [getModelById] Respuesta completa desde Cockpit:', res)
+    console.log("📥 [getModelById] Respuesta completa desde Cockpit:", res);
 
-    if (!res || typeof res !== 'object' || (!res._id && !res.slug && !res.name)) {
-      console.warn('⚠️ [getModelById] Documento no encontrado o respuesta vacía')
-      return null
+    if (!res || typeof res !== "object" || (!res._id && !res.slug && !res.name)) {
+      console.warn(
+        "⚠️ [getModelById] Documento no encontrado o respuesta vacía"
+      );
+      return null;
     }
 
-    const item = normalizeModel(res as Model)
+    const item = normalizeModel(res as Model);
 
-    console.group('✨ [getModelById] Modelo normalizado:')
-    console.table([{
-      _id: item._id,
-      name: item.name,
-      slug: item.slug,
-      displayImage: item.displayImage,
-      power_hp: item.power_hp ?? '—',
-      year: item.year ?? '—'
-    }])
-    console.groupEnd()
+    console.group("✨ [getModelById] Modelo normalizado:");
+    console.table([
+      {
+        _id: item._id,
+        name: item.name,
+        slug: item.slug,
+        displayImage: item.displayImage,
+        power_hp: item.power_hp ?? "—",
+        year: item.year ?? "—",
+        price: item.price ?? "—",
+      },
+    ]);
+    console.groupEnd();
 
-    console.log('✅ [getModelById] OK')
-    return item
+    console.log("✅ [getModelById] OK");
+    return item;
   } catch (error) {
-    console.error('❌ [getModelById] Error al obtener modelo por ID:', error)
-    return null
+    console.error("❌ [getModelById] Error al obtener modelo por ID:", error);
+    return null;
   }
 }
 
 /** OBTENER POR SLUG/NAME (POST /content/items/{MODEL} con filtro) */
 export async function getModelBySlug(raw: string): Promise<Model | null> {
-  const exact = raw?.trim() ?? ''
-  const exactCi = `^${escapeRegExp(exact)}$` // coincidencia exacta, case-insensitive
+  const exact = raw?.trim() ?? "";
+  const exactCi = `^${escapeRegExp(exact)}$`; // coincidencia exacta, case-insensitive
 
   // Permitimos: slug exacto, slug CI, name CI (por si el slug no está bien guardado)
   const body = {
     filter: {
       $or: [
         { slug: exact },
-        { slug: { $regex: exactCi, $options: 'i' } },
-        { name: { $regex: exactCi, $options: 'i' } }
-      ]
+        { slug: { $regex: exactCi, $options: "i" } },
+        { name: { $regex: exactCi, $options: "i" } },
+      ],
     },
     limit: 1,
-    populate: 1
-  }
+    populate: 1,
+  };
 
-  console.log('📤 [getModelBySlug] Enviando petición a Cockpit:', {
+  console.log("📤 [getModelBySlug] Enviando petición a Cockpit:", {
     endpoint: `content/items/${MODEL}`,
-    method: 'POST',
-    body
-  })
+    method: "POST",
+    body,
+  });
 
   try {
     const res = await cockpitFetch<CockpitListResponse<Model>>(
       `content/items/${MODEL}`,
-      { method: 'POST', body }
-    )
+      { method: "POST", body }
+    );
 
-    console.log('📥 [getModelBySlug] Respuesta completa desde Cockpit:', res)
-    console.log(`📦 [getModelBySlug] meta.total: ${res.meta?.total ?? 'N/A'} | data.length: ${res.data?.length ?? 0}`)
+    console.log("📥 [getModelBySlug] Respuesta completa desde Cockpit:", res);
+    console.log(
+      `📦 [getModelBySlug] meta.total: ${
+        res.meta?.total ?? "N/A"
+      } | data.length: ${res.data?.length ?? 0}`
+    );
 
-    const m = res.data?.[0]
+    const m = res.data?.[0];
     if (!m) {
-      console.warn('⚠️ [getModelBySlug] No se encontró modelo con ese slug/name')
-      return null
+      console.warn(
+        "⚠️ [getModelBySlug] No se encontró modelo con ese slug/name"
+      );
+      return null;
     }
 
-    const item = normalizeModel(m)
+    const item = normalizeModel(m);
 
-    console.group('✨ [getModelBySlug] Modelo normalizado:')
-    console.table([{
-      _id: item._id,
-      name: item.name,
-      slug: item.slug,
-      displayImage: item.displayImage,
-      power_hp: item.power_hp ?? '—',
-      year: item.year ?? '—'
-    }])
-    console.groupEnd()
+    console.group("✨ [getModelBySlug] Modelo normalizado:");
+    console.table([
+      {
+        _id: item._id,
+        name: item.name,
+        slug: item.slug,
+        displayImage: item.displayImage,
+        power_hp: item.power_hp ?? "—",
+        year: item.year ?? "—",
+        price: item.price ?? "—",
+      },
+    ]);
+    console.groupEnd();
 
-    console.log('✅ [getModelBySlug] OK')
-    return item
+    console.log("✅ [getModelBySlug] OK");
+    return item;
   } catch (error) {
-    console.error('❌ [getModelBySlug] Error al obtener modelo por slug:', error)
-    return null
+    console.error("❌ [getModelBySlug] Error al obtener modelo por slug:", error);
+    return null;
   }
 }
-
 
 /** CREAR / ACTUALIZAR / ELIMINAR */
 export async function saveModel(data: Partial<Model>) {

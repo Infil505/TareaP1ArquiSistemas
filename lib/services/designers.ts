@@ -18,15 +18,11 @@ export interface Designer {
   notable_projects?: string[];
   birth_year?: number;
   awards?: string[];
-  /** Lista de slugs de modelos relacionados */
-  models?: string[]; // normalizada a string[] en normalize
-  /** Modelo destacado por slug (opcional) */
+  models?: string[];
   featured_model?: string;
-  /** Contenido markdown/html renderizable por ContentRenderer */
   body?: any;
 }
 
-/** Respuesta real de Cockpit v2 para content/items */
 interface CockpitListResponse<T> {
   data: T[];
   meta: { total: number };
@@ -39,11 +35,9 @@ type ListParams = {
   sort?: Record<string, 1 | -1>;
   filter?: Record<string, any>;
   populate?: 0 | 1;
-  /** Campos a devolver (optimización opcional) */
   fields?: string[];
 };
 
-/** Convierte asset de Cockpit a URL absoluta usable en <img> o CSS bg */
 export const toAssetUrl = (
   asset?: string | { path?: string } | null
 ): string => {
